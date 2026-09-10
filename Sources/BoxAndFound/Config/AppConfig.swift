@@ -17,6 +17,11 @@ enum AppConfig {
 
     static var premiumEmails: String? { string("PremiumEmails") }
 
+    /// The private bucket box photos live in. Not a secret — the same value
+    /// the web client and Android both use — so it falls back rather than
+    /// failing a build that has not set it.
+    static var storageBucket: String { string("StorageBucket") ?? "box-images" }
+
     /// True when this build was given real credentials rather than the
     /// stand-ins CI writes for a pull request from a fork. Tests that need a
     /// live backend switch themselves off when it is false, so a fork can

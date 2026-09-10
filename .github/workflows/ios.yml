@@ -59,6 +59,7 @@ jobs:
             printf 'SLASH = /\n'
             printf 'SUPABASE_URL = https:$(SLASH)$(SLASH)%s\n' "$host"
             printf 'SUPABASE_ANON_KEY = %s\n' "$key"
+            printf 'STORAGE_BUCKET = box-images\n'
             printf 'PREMIUM_EMAILS =\n'
           } > Config/Secrets.xcconfig
           if [ -n "$SUPABASE_URL" ]; then

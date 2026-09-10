@@ -167,7 +167,3 @@ final class InventoryPresenter: Presenter {
         }
     }
 }
-
-extension String {
-    var trimmed: String { trimmingCharacters(in: .whitespacesAndNewlines) }
-}
