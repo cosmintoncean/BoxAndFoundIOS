@@ -2,22 +2,6 @@ import Foundation
 import Observation
 import Supabase
 
-/// What the rest of the app is allowed to know about the session.
-enum AuthState: Equatable, Sendable {
-    /// Session is being restored from the keychain on cold start.
-    case restoring
-    case signedOut
-    case signedIn(SignedInUser)
-}
-
-struct SignedInUser: Equatable, Sendable {
-    let id: String
-    let email: String?
-    /// Derived from `user_metadata` exactly as the web and Android clients
-    /// derive it, so one purchase reads the same everywhere. See `Premium`.
-    let isPremium: Bool
-}
-
 /// The single reader of Supabase session state.
 ///
 /// supabase-swift persists and refreshes the session itself, so this owns no

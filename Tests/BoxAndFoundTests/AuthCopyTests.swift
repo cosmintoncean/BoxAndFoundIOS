@@ -13,25 +13,36 @@ struct AuthCopyTests {
         .unknown(detail: nil), .unknown(detail: "some server text"),
     ])
     func hasCopy(_ failure: AuthFailure) {
-        #expect(!failure.message.isEmpty)
-        #expect(!failure.isSilent)
+        let notice = AuthCopy.notice(for: failure)
+        #expect(notice != nil)
+        #expect(notice?.text.isEmpty == false)
+        #expect(notice?.kind == .error)
     }
 
-    @Test("Cancelling is silent, not an error")
-    func cancelledIsSilent() {
-        #expect(AuthFailure.cancelled.isSilent)
-        #expect(AuthFailure.cancelled.message.isEmpty)
+    @Test("Cancelling produces no notice at all, rather than an empty one")
+    func cancellingIsSilent() {
+        #expect(AuthCopy.notice(for: .cancelled) == nil)
     }
 
     @Test("No GoTrue wording ever reaches the screen")
     func neverLeaksServerText() {
         let leak = AuthFailure.unknown(detail: "AuthApiError: Invalid login credentials")
-        #expect(!leak.message.contains("AuthApiError"))
-        #expect(leak.message == "Something went wrong. Try again.")
+        let notice = AuthCopy.notice(for: leak)
+        #expect(notice?.text.contains("AuthApiError") == false)
+        #expect(notice?.text == "Something went wrong. Try again.")
     }
 
     @Test("The weak-password copy quotes the same minimum the check uses")
     func weakPasswordQuotesTheRule() {
-        #expect(AuthFailure.weakPassword.message.contains("\(Credentials.minPasswordLength)"))
+        #expect(
+            AuthCopy.notice(for: .weakPassword)?.text
+                .contains("\(Credentials.minPasswordLength)") == true
+        )
+    }
+
+    @Test("A confirmation is good news, and coloured like it")
+    func confirmationIsSuccess() {
+        #expect(AuthCopy.confirmationSent.kind == .success)
+        #expect(AuthCopy.confirmationSent.text.contains("Check your email"))
     }
 }

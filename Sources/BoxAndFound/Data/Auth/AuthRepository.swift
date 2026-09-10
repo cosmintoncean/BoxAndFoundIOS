@@ -1,10 +1,9 @@
 import Foundation
 import Supabase
 
-/// Which third-party button was pressed.
-enum OAuthProvider: String, CaseIterable, Sendable {
-    case google, facebook, apple
-
+/// How the domain names a provider, in the SDK's own terms. The only place
+/// the two vocabularies meet.
+extension OAuthProvider {
     var supabase: Provider {
         switch self {
         case .google: .google

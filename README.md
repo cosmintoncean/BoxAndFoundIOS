@@ -121,6 +121,59 @@ What stays out of reach either way is everything visual — layout, gestures,
 whether the Apple sheet actually appears. That needs a simulator on a Mac, or
 TestFlight on a device.
 
+## Architecture
+
+MVP, with the layers held apart by what each is allowed to import.
+
+**Domain** — entities and rules. Imports `Foundation` and nothing else: no
+Supabase, no SwiftUI. `AuthFailure`, `Credentials`, `Premium`, `AuthState`,
+`SignedInUser`. This is the layer ported from Android, and the reason those
+ports were line-for-line rather than reinterpreted.
+
+**Data** — the only layer that knows Supabase exists. Repositories take domain
+types in and hand domain types back; the SDK's error taxonomy is translated at
+the boundary in `AuthFailure+Supabase`, and `OAuthProvider` learns its Supabase
+spelling in an extension there rather than in the enum itself.
+
+**Presentation** — one presenter per screen, one UI model per presenter, and a
+view that draws it. See `Presenter.swift` for the contract.
+
+### Why the presenter looks like this
+
+Textbook MVP hands the presenter a `View` protocol and has it call
+`render(state)`. SwiftUI views are structs, recreated on every change and never
+worth holding a reference to, so that half inverts: the presenter publishes one
+`viewState` and SwiftUI does the calling. What survives, and what makes this MVP
+rather than MVVM, is that the view is passive — it owns no state, sends every
+action back as an intent (`emailChanged(_:)`, not a two-way `$binding`), and
+never sees a domain type. A whole screen's behaviour is then testable by calling
+methods and reading `viewState`, which is what `AuthPresenterTests` does.
+
+`viewState` is computed from private stored properties rather than stored
+itself, so there is no second copy to keep in step; `@Observable` tracks the
+properties the computation touches and redraws when they move.
+
+### Two kinds of model
+
+A **domain model** is what the system is: `SignedInUser`, and from M2 the
+`Household`, `Room`, `Box` and `BoxItem` mirrors of the tables. No formatting,
+no copy, no ordering for display.
+
+A **UI model** is what a screen shows: `AuthViewState`, `RootViewState`, and
+their nested `Notice` and `ProviderButton`. Strings already worded, flags
+already decided, lists already ordered. By the time a failure reaches one it is
+a sentence — which is why `AuthCopy` lives in the presentation layer and why no
+view can accidentally render a GoTrue string.
+
+The translation is the presenter's job, in both directions: `AuthViewState`
+carries its own `ProviderButton.Kind` rather than the domain's `OAuthProvider`,
+so a tap arrives as a UI concept and leaves as a domain one.
+
+The boundary is *varying* content, not every string on screen. Static field
+labels ("Email", "you@example.com") stay in the view, where static text
+belongs. Anything a presenter can change lives in the UI model, where a test
+can read it.
+
 ## Decisions already taken
 
 **Follow Android's ports, don't redo them.** `AuthFailure`, `Credentials` and
@@ -211,15 +264,19 @@ Config/Secrets.xcconfig.example the template for local credentials
 Sources/BoxAndFound/
   App/BoxAndFoundApp.swift      composition root
   Config/AppConfig.swift        build-time config, read back out of Info.plist
-  Data/SupabaseProvider.swift   the one Supabase client
-  Data/SessionStore.swift       narrows auth state to Restoring / SignedOut / SignedIn
-  Data/Auth/
-    AuthFailure.swift           closed set of failures + the pure GoTrue mapping
-    AuthFailure+Supabase.swift  the only file that knows the SDK's error shape
-    Credentials.swift           client-side email/password sanity checks
-  Data/Premium/Premium.swift    entitlement, ported from the web checkPremium
-  UI/RootView.swift             the one place that decides signed-in from signed-out
-  UI/Theme/Palette.swift        palette ported from the web client's CSS
-Tests/BoxAndFoundTests/         Swift Testing suites for all of the above
+  Domain/                       entities and rules; imports Foundation and nothing else
+    Auth/                       AuthFailure and its GoTrue mapping, Credentials, OAuthProvider
+    Premium/Premium.swift       entitlement, ported from the web checkPremium
+    Session/Session.swift       AuthState and SignedInUser
+  Data/                         the only layer that knows Supabase exists
+    SupabaseProvider.swift      the one client
+    Auth/                       AuthRepository, the SDK error mapping, the Apple nonce
+    Session/SessionStore.swift  narrows the auth stream to AuthState
+  Presentation/
+    Presenter.swift             what a screen is here, and why it is not MVVM
+    Auth/                       AuthPresenter, AuthViewState, AuthCopy, AuthView
+    Root/                       RootPresenter, RootViewState, RootView
+    Theme/Palette.swift         palette ported from the web client's CSS
+Tests/BoxAndFoundTests/         Swift Testing suites for the domain and the presenters
 .github/workflows/ios.yml       the compiler
 ```
