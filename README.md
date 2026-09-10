@@ -11,9 +11,9 @@ a decision — the entitlement shape, the error taxonomy, the palette, the
 `boxes.icon` contract — this one follows it rather than inventing a second
 answer.
 
-Status: **M0 — foundations.** Session state, configuration, the ported palette
-and the pure logic that three test suites cover. There is no sign-in screen
-yet; the root view says so out loud.
+Status: **M0 — foundations, green on CI.** Session state, configuration, the
+ported palette and the pure logic, covered by 20 passing tests. There is no
+sign-in screen yet; the root view says so out loud.
 
 ---
 
@@ -87,15 +87,25 @@ On a Mac, `brew install xcodegen && xcodegen generate && open BoxAndFound.xcodep
 
 ## Verified
 
-**Against the source of truth, not against a compiler:** every value in
-`PaletteHex` was diffed against `css/style.css` in the web repo and matches.
-The supabase-swift API this code calls — `AuthError.message` / `.errorCode`,
-`authStateChanges`, `AnyJSON.boolValue` / `.stringValue` — was read out of the
-v2.55.1 sources rather than recalled.
+**Green on CI as of run 34459625236:** both targets compile under Xcode 26 in
+Swift 6 language mode, and 20 tests in 4 suites pass. Every supabase-swift call
+this code makes — `AuthError.message` / `.errorCode`, the `authStateChanges`
+tuple, `AnyJSON.boolValue` / `.stringValue` — type-checked on the first
+attempt, because those signatures were read out of the v2.55.1 sources rather
+than recalled. Every value in `PaletteHex` was diffed against `css/style.css`
+in the web repo and matches.
 
-**Not verified:** that any of it compiles. No Swift file here has been through
-a compiler. The first CI run is the first real check, and the honest
-expectation is that it finds something.
+Three runs to get there. None of the three failures was a mistake about Swift:
+an SSH host key that a non-interactive push could not accept, a `static let
+Regex` that Swift 6 rejects as shared mutable state, and this repo's own
+configuration trap firing inside the test host. The third is written up under
+Gotchas — it is the one worth remembering.
+
+**Still not verified, and not verifiable from here:** that the app *works*.
+Nothing has rendered a screen. Compiling and passing unit tests says the types
+line up and the pure logic is right; it says nothing about layout, gestures, or
+whether a real sign-in round trip succeeds. That needs a simulator on a Mac, or
+TestFlight on a device.
 
 ## Decisions already taken
 
@@ -145,7 +155,7 @@ Numbered to match the Android client, so "M3" means the same thing in both.
 
 | | | Status |
 |---|---|---|
-| M0 | Foundations — config, session state, palette, the pure ports | **written, unverified** |
+| M0 | Foundations — config, session state, palette, the pure ports | **done** |
 | M1 | Sign in — email/password, Apple, Google, Facebook | next |
 | M2 | Read the inventory — households, rooms, boxes, items, search | |
 | M3 | Edit — box/room CRUD, items, taken/returned, photo upload | |
@@ -171,6 +181,10 @@ Numbered to match the Android client, so "M3" means the same thing in both.
   whole test run down with "Early unexpected exit" and no test results. It also
   costs about six minutes a run. Moving the `Data` layer into its own framework
   target would fix both; that is the first thing to do at M2.
+- **`SWIFT_VERSION: 6.0` means Swift 6 language mode, not just a compiler.** A
+  `static let` of any non-`Sendable` type is a hard error there, which rules
+  out the obvious way to hold a compiled `Regex`. Compute it instead of
+  reaching for `nonisolated(unsafe)`.
 - **Strict concurrency is set to `minimal` on purpose.** supabase-swift 2.x is
   not fully `Sendable`-audited; turning it up before the first green build
   would mix language-mode complaints in with real errors. Revisit at M2.

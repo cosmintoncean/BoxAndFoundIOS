@@ -8,6 +8,9 @@ name: iOS
 on:
   push:
     branches: [main, development]
+    # macOS minutes bill at 10x, so a README edit does not get to spend three
+    # of them proving the Swift still compiles.
+    paths-ignore: ["**.md"]
   pull_request:
   workflow_dispatch:
 
