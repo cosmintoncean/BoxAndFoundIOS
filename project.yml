@@ -79,6 +79,12 @@ targets:
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
+        # `@testable import BoxAndFound` links against the app binary, so the
+        # bundle needs a host. Set explicitly rather than trusting XcodeGen to
+        # infer it from the dependency — an inferred value that quietly stops
+        # being inferred is a bad way to lose an afternoon.
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/BoxAndFound.app/BoxAndFound
+        BUNDLE_LOADER: $(TEST_HOST)
 
 schemes:
   BoxAndFound:

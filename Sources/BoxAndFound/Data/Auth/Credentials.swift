@@ -12,7 +12,15 @@ enum Credentials {
 
     /// Excludes spaces, requires a dot-separated host. Kept character-for-
     /// character equivalent to the Android client's regex.
-    private static let email = #/^[^@ ]+@[^@ .]+([.][^@ .]+)+$/#
+    ///
+    /// Computed rather than stored: `Regex` is not `Sendable`, so a `static
+    /// let` is a hard error in Swift 6 language mode. Rebuilding a literal
+    /// costs almost nothing, and the two alternatives — `nonisolated(unsafe)`
+    /// or pinning it to `@MainActor` — would each trade a real guarantee for a
+    /// saved allocation.
+    private static var email: Regex<(Substring, Substring)> {
+        #/^[^@ ]+@[^@ .]+([.][^@ .]+)+$/#
+    }
 
     static func isEmailShaped(_ candidate: String) -> Bool {
         normaliseEmail(candidate).wholeMatch(of: email) != nil
