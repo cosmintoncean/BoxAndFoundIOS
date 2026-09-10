@@ -17,6 +17,15 @@ enum AppConfig {
 
     static var premiumEmails: String? { string("PremiumEmails") }
 
+    /// True when this build was given real credentials rather than the
+    /// stand-ins CI writes for a pull request from a fork. Tests that need a
+    /// live backend switch themselves off when it is false, so a fork can
+    /// still get a green run without ever seeing a secret.
+    static var isLiveBackendConfigured: Bool {
+        guard let host = supabaseURL?.host() else { return false }
+        return !host.hasPrefix("ci-placeholder")
+    }
+
     /// The redirect OAuth providers hand the session back through. Must be
     /// allowlisted in Supabase -> Authentication -> URL Configuration, next to
     /// the Android client's `net.boxandfound.android://login-callback`.

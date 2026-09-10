@@ -34,25 +34,38 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
-      # Unit tests never reach the network, so CI builds against placeholders
-      # rather than real credentials. When TestFlight arrives, the release job
-      # gets the real values from repository secrets — and will need the same
-      # SLASH dance, because xcconfig treats // as a comment.
+      # Real credentials when the repository has them, placeholders otherwise.
+      # Actions withholds secrets from pull requests raised on forks, so those
+      # runs get the stand-ins and `LiveBackendTests` switches itself off —
+      # a fork still gets a green run without ever seeing a secret.
       #
-      # These have to be *shaped* like real credentials even though nothing
-      # dials out: the test bundle is hosted inside the app, so running tests
-      # launches BoxAndFoundApp for real, and AppConfig rejecting the example
-      # file's obvious dummies would trap on launch before a single test ran.
-      # Copying the .example file here is exactly the mistake that cost run
-      # 34458632558.
-      - name: Write a placeholder Secrets.xcconfig
+      # The placeholders have to be *shaped* like credentials even though they
+      # never dial out: the test bundle is hosted inside the app, so running
+      # tests launches BoxAndFoundApp for real, and AppConfig rejecting the
+      # .example file's obvious dummies would trap on launch before a single
+      # test ran. That mistake cost run 34458632558.
+      #
+      # The URL is split around $(SLASH) because xcconfig treats // as a
+      # comment, mid-value included — written literally it becomes "https:".
+      - name: Write Secrets.xcconfig
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          cat > Config/Secrets.xcconfig <<'CFG'
-          SLASH = /
-          SUPABASE_URL = https:$(SLASH)$(SLASH)ci-placeholder.supabase.co
-          SUPABASE_ANON_KEY = ci-placeholder-anon-key
-          PREMIUM_EMAILS =
-          CFG
+          url="${SUPABASE_URL:-https://ci-placeholder.supabase.co}"
+          key="${SUPABASE_ANON_KEY:-ci-placeholder-anon-key}"
+          host="${url#https://}"
+          {
+            printf 'SLASH = /\n'
+            printf 'SUPABASE_URL = https:$(SLASH)$(SLASH)%s\n' "$host"
+            printf 'SUPABASE_ANON_KEY = %s\n' "$key"
+            printf 'PREMIUM_EMAILS =\n'
+          } > Config/Secrets.xcconfig
+          if [ -n "$SUPABASE_URL" ]; then
+            echo "Live backend configured; LiveBackendTests will run."
+          else
+            echo "No credentials available; LiveBackendTests will be skipped."
+          fi
 
       - name: Cache resolved packages
         uses: actions/cache@v4
