@@ -11,9 +11,10 @@ a decision — the entitlement shape, the error taxonomy, the palette, the
 `boxes.icon` contract — this one follows it rather than inventing a second
 answer.
 
-Status: **M1 — sign in, green on CI.** Email and password, Sign in with Apple,
-Google and Facebook, covered by 32 passing tests. Nothing behind sign-in
-exists yet; the root view says so out loud.
+Status: **M2 — reading the inventory, green on CI.** Sign in with email,
+Apple, Google or Facebook; the box list with search and a household switcher;
+box detail. 78 passing tests, five of which talk to the real project. Nothing
+writes yet.
 
 ---
 
@@ -87,39 +88,48 @@ On a Mac, `brew install xcodegen && xcodegen generate && open BoxAndFound.xcodep
 
 ## Verified
 
-**Green on CI as of run 34459625236:** both targets compile under Xcode 26 in
-Swift 6 language mode, and 20 tests in 4 suites pass. Every supabase-swift call
-this code makes — `AuthError.message` / `.errorCode`, the `authStateChanges`
-tuple, `AnyJSON.boolValue` / `.stringValue` — type-checked on the first
-attempt, because those signatures were read out of the v2.55.1 sources rather
-than recalled. Every value in `PaletteHex` was diffed against `css/style.css`
-in the web repo and matches.
+**Green on CI as of run 34473367956:** 78 tests in 13 suites, both targets
+compiling under Xcode 26 in Swift 6 language mode.
 
-Three runs to get there. None of the three failures was a mistake about Swift:
-an SSH host key that a non-interactive push could not accept, a `static let
-Regex` that Swift 6 rejects as shared mutable state, and this repo's own
-configuration trap firing inside the test host. The third is written up under
-Gotchas — it is the one worth remembering.
+**Against the live project.** Five of those tests talk to the real Supabase
+project rather than a fixture, and they are the ones worth the wall-clock time:
 
-**Still not verified, and not verifiable from here:** that the app *works*.
-Nothing has rendered a screen and no sign-in has ever been attempted against
-the live project. Compiling and passing unit tests says the types line up and
-the pure logic is right; it says nothing about layout, gestures, or whether
-GoTrue accepts what `AuthRepository` sends it.
+- A deliberately failing sign-in comes back as `.invalidCredentials`. That one
+  assertion proves the URL resolves, the anon key is accepted, errors arrive
+  structured, and the GoTrue code still maps to the case `AuthView` renders —
+  `AuthFailure.from` turns a `URLError` into `.network` before any message
+  matching runs, so an unreachable server could not have produced this result.
+- Every PostgREST query the app builds is accepted: the owned/joined households
+  pair, rooms by household, boxes with `box_items` embedded, and one box by id.
+  They run unauthenticated, so RLS answers all of them with nothing —
+  emptiness is not the point. PostgREST rejects a projection it cannot parse
+  with a 400, so a query that returns at all is one the server understood. This
+  is what confirms `box_items` resolves as a relationship with all seven named
+  columns present, and that `anon` holds select grants on all four tables.
+- The `PGRST116` mapping was a guess when it was written, and the live "no
+  rows" reply confirms it: a missing box reads as `.notFound`, not as a broken
+  request.
 
-Part of that gap can close without a Mac: one CI test that signs in against
-the real project with deliberately wrong credentials and asserts the mapped
-failure comes back as `.invalidCredentials`. That single round trip proves the
-URL, the anon key, the SDK wiring and the error taxonomy at once — it is what
-the Android client checked on a device before trusting any of the screens
-behind sign-in. It needs `SUPABASE_URL` and `SUPABASE_ANON_KEY` as repository
-secrets, which is safe on a public repo: Actions withholds secrets from fork
-pull requests, and the anon key is already public in the web client's
-JavaScript.
+**Against the source of truth rather than a compiler.** Every value in
+`PaletteHex` was diffed against `css/style.css` in the web repo and matches.
+The supabase-swift API this code calls was read out of the v2.55.1 sources
+rather than recalled, which is why the first build's only error was in this
+repo's own code.
 
-What stays out of reach either way is everything visual — layout, gestures,
-whether the Apple sheet actually appears. That needs a simulator on a Mac, or
+**Still not verified, and not verifiable from here:** that the app *looks*
+right. Nothing has rendered a screen. The presenters are tested by calling
+intents and reading view state, so the logic behind every screen is pinned, but
+layout, navigation, gestures, the search bar's real behaviour and whether the
+Apple sheet appears at all are untouched. That needs a simulator on a Mac, or
 TestFlight on a device.
+
+**The failures worth remembering.** None of them was a mistake about Swift
+itself: an SSH host key a non-interactive push could not accept, a `static let
+Regex` that Swift 6 rejects as shared mutable state, this repo's own
+configuration trap firing inside the test host, `UserDefaults` not being
+`Sendable`, and typed throws quietly declining to narrow a `catch` binding. The
+third is written up under Gotchas; the last is why every `catch` in the data
+layer binds its failure type explicitly.
 
 ## Architecture
 
@@ -224,8 +234,8 @@ Numbered to match the Android client, so "M3" means the same thing in both.
 |---|---|---|
 | M0 | Foundations — config, session state, palette, the pure ports | **done** |
 | M1 | Sign in — email/password, Apple, Google, Facebook | **done**, never run against a live server |
-| M2 | Read the inventory — households, rooms, boxes, items, search | next |
-| M3 | Edit — box/room CRUD, items, taken/returned, photo upload | |
+| M2 | Read the inventory — households, rooms, boxes, items, search | **done** |
+| M3 | Edit — box/room CRUD, items, taken/returned, photo upload | next |
 | M4 | Households and invites — Universal Links on `boxandfound.net` | |
 | M5 | Notifications and nudges — APNs, realtime feed, 24h cooldown | |
 | M6 | Premium — StoreKit 2, verification, gates | |
