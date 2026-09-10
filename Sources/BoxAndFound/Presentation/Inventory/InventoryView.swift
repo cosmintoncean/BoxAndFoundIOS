@@ -4,33 +4,33 @@ import SwiftUI
 /// room. Passive, like every view here — see `Presenter`.
 struct InventoryView: View {
     @State private var presenter: InventoryPresenter
+    /// Navigation is genuinely the view's: the stack owns it, and the
+    /// presenter has no opinion about how a screen got here. It is watched
+    /// only so returning to the list can reload what the pushed screen wrote.
+    @State private var path: [Route] = []
+
+    private let userID: String
+
+    private enum Route: Hashable {
+        case box(InventoryViewState.BoxRow)
+        case newBox
+    }
 
     init(userID: String, signOut: @escaping @MainActor () async -> Void) {
+        self.userID = userID
         _presenter = State(initialValue: InventoryPresenter(userID: userID, signOut: signOut))
     }
 
     var body: some View {
         let state = presenter.viewState
 
-        NavigationStack {
+        NavigationStack(path: $path) {
             content(state)
                 .navigationTitle(state.title)
                 .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    if state.isHouseholdSwitcherVisible {
-                        ToolbarItem(placement: .topBarLeading) {
-                            householdMenu(state)
-                        }
-                    }
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("Sign out") {
-                            Task { await presenter.signOutTapped() }
-                        }
-                        .font(.subheadline)
-                    }
-                }
-                .navigationDestination(for: InventoryViewState.BoxRow.self) { row in
-                    BoxDetailView(boxID: row.id, title: row.name)
+                .toolbar { toolbar(state) }
+                .navigationDestination(for: Route.self) { route in
+                    destination(route, householdID: state.activeHouseholdID)
                 }
                 .searchableWhen(
                     state.isSearchVisible,
@@ -40,9 +40,60 @@ struct InventoryView: View {
                     ),
                     prompt: "Search boxes and items"
                 )
+                .refreshable { await presenter.refresh() }
         }
         .tint(.bfAccent)
         .task { await presenter.appeared() }
+        .onChange(of: path) { previous, current in
+            // Back at the list. Whatever the pushed screen wrote — a taken
+            // item, a renamed box, a deleted one — the counts here are stale.
+            if current.isEmpty && !previous.isEmpty {
+                Task { await presenter.refresh() }
+            }
+        }
+    }
+
+    @ToolbarContentBuilder
+    private func toolbar(_ state: InventoryViewState) -> some ToolbarContent {
+        if state.isHouseholdSwitcherVisible {
+            ToolbarItem(placement: .topBarLeading) {
+                householdMenu(state)
+            }
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+            Button {
+                path.append(.newBox)
+            } label: {
+                Image(systemName: "plus")
+            }
+            .accessibilityLabel("New box")
+            .disabled(state.activeHouseholdID == nil)
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+            Menu {
+                Button("Sign out", role: .destructive) {
+                    Task { await presenter.signOutTapped() }
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+            }
+            .accessibilityLabel("More")
+        }
+    }
+
+    @ViewBuilder
+    private func destination(_ route: Route, householdID: String?) -> some View {
+        switch route {
+        case .box(let box):
+            BoxDetailView(
+                boxID: box.id,
+                title: box.name,
+                householdID: householdID ?? "",
+                userID: userID
+            )
+        case .newBox:
+            BoxEditorView(householdID: householdID ?? "", userID: userID)
+        }
     }
 
     @ViewBuilder
@@ -78,7 +129,7 @@ struct InventoryView: View {
                 ForEach(sections) { section in
                     Section {
                         ForEach(section.boxes) { box in
-                            NavigationLink(value: box) {
+                            NavigationLink(value: Route.box(box)) {
                                 boxRow(box)
                             }
                             .listRowBackground(Color.bfSurface)
@@ -148,6 +199,7 @@ struct InventoryView: View {
         } label: {
             Image(systemName: "house")
         }
+        .accessibilityLabel("Switch household")
     }
 
     private func centred<Content: View>(@ViewBuilder content: () -> Content) -> some View {

@@ -1,12 +1,21 @@
 import SwiftUI
 
-/// One box and what is in it. Read-only at M2 — taking and returning arrive
-/// with the rest of the writes at M3.
+/// One box and what is in it. Tapping an item takes it or puts it back.
 struct BoxDetailView: View {
     @State private var presenter: BoxDetailPresenter
+    @State private var isEditing = false
 
-    init(boxID: String, title: String) {
-        _presenter = State(initialValue: BoxDetailPresenter(boxID: boxID, title: title))
+    private let boxID: String
+    private let householdID: String
+    private let userID: String
+
+    init(boxID: String, title: String, householdID: String, userID: String) {
+        self.boxID = boxID
+        self.householdID = householdID
+        self.userID = userID
+        _presenter = State(
+            initialValue: BoxDetailPresenter(boxID: boxID, title: title, userID: userID)
+        )
     }
 
     var body: some View {
@@ -18,6 +27,21 @@ struct BoxDetailView: View {
         }
         .navigationTitle(state.title)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if state.isEditVisible {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Edit") { isEditing = true }
+                }
+            }
+        }
+        .navigationDestination(isPresented: $isEditing) {
+            BoxEditorView(householdID: householdID, boxID: boxID, userID: userID)
+        }
+        .onChange(of: isEditing) { _, editing in
+            // Coming back from the editor: the box may have been renamed, had
+            // items added, or been deleted outright.
+            if !editing { Task { await presenter.returnedToScreen() } }
+        }
         .task { await presenter.appeared() }
     }
 
@@ -47,6 +71,18 @@ struct BoxDetailView: View {
     private func loaded(_ box: BoxDetailViewState.Loaded) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                if let url = box.imageURL {
+                    AsyncImage(url: url) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        ProgressView().frame(maxWidth: .infinity)
+                    }
+                    .frame(height: 180)
+                    .frame(maxWidth: .infinity)
+                    .clipped()
+                    .clipShape(.rect(cornerRadius: 12))
+                }
+
                 summary(box)
 
                 if let message = box.emptyMessage {
@@ -68,6 +104,11 @@ struct BoxDetailView: View {
                     .overlay {
                         RoundedRectangle(cornerRadius: 12).stroke(Color.bfBorder, lineWidth: 1)
                     }
+
+                    Text("Tap an item to take it or put it back.")
+                        .font(.caption)
+                        .foregroundStyle(Color.bfTextMuted)
+                        .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
             .padding(20)
@@ -102,24 +143,38 @@ struct BoxDetailView: View {
     }
 
     private func itemRow(_ item: BoxDetailViewState.ItemRow) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: item.isTaken ? "circle.dashed" : "circle.fill")
-                .font(.caption2)
-                .foregroundStyle(item.isTaken ? Color.bfTextMuted : Color.bfGreen)
+        Button {
+            Task { await presenter.itemTapped(item.id) }
+        } label: {
+            HStack(spacing: 10) {
+                if item.isBusy {
+                    ProgressView().controlSize(.mini).frame(width: 14)
+                } else {
+                    Image(systemName: item.isTaken ? "circle.dashed" : "circle.fill")
+                        .font(.caption2)
+                        .foregroundStyle(item.isTaken ? Color.bfTextMuted : Color.bfGreen)
+                        .frame(width: 14)
+                }
 
-            Text(item.name)
-                .foregroundStyle(item.isTaken ? Color.bfTextMuted : Color.bfText)
-                .strikethrough(item.isTaken, color: .bfTextMuted)
+                Text(item.name)
+                    .foregroundStyle(item.isTaken ? Color.bfTextMuted : Color.bfText)
+                    .strikethrough(item.isTaken, color: .bfTextMuted)
 
-            Spacer(minLength: 0)
+                Spacer(minLength: 0)
 
-            if let quantity = item.quantity {
-                Text(quantity)
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(Color.bfTextMuted)
+                if let quantity = item.quantity {
+                    Text(quantity)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(Color.bfTextMuted)
+                }
             }
+            .contentShape(.rect)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .buttonStyle(.plain)
+        .disabled(item.isBusy)
+        .accessibilityLabel(item.isTaken ? "\(item.name), taken" : item.name)
+        .accessibilityHint(item.isTaken ? "Put it back" : "Take it")
     }
 }

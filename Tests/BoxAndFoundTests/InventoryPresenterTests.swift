@@ -244,7 +244,8 @@ struct BoxDetailPresenterTests {
         let presenter = BoxDetailPresenter(
             boxID: "b1",
             title: "Winter Clothes",
-            repository: StubInventory()
+            userID: "user-1",
+            reader: StubInventory()
         )
         #expect(presenter.viewState.title == "Winter Clothes")
         #expect(presenter.viewState.content == .loading)
@@ -256,7 +257,9 @@ struct BoxDetailPresenterTests {
             BoxItem(id: "i1", name: "Scarf", quantity: 1, position: 0),
             BoxItem(id: "i2", name: "Gloves", quantity: 3, position: 1, isTaken: true),
         ]))
-        let presenter = BoxDetailPresenter(boxID: "b1", title: "Winter", repository: stub)
+        let presenter = BoxDetailPresenter(
+            boxID: "b1", title: "Winter", userID: "user-1", reader: stub
+        )
         await presenter.appeared()
 
         guard case .loaded(let box) = presenter.viewState.content else {
@@ -274,7 +277,9 @@ struct BoxDetailPresenterTests {
     @Test("An empty box says so instead of showing an empty list")
     func emptyBox() async {
         let stub = StubInventory(singleBox: Box(id: "b1", name: "Spare"))
-        let presenter = BoxDetailPresenter(boxID: "b1", title: "Spare", repository: stub)
+        let presenter = BoxDetailPresenter(
+            boxID: "b1", title: "Spare", userID: "user-1", reader: stub
+        )
         await presenter.appeared()
 
         guard case .loaded(let box) = presenter.viewState.content else {
@@ -290,7 +295,8 @@ struct BoxDetailPresenterTests {
         let presenter = BoxDetailPresenter(
             boxID: "b1",
             title: "Winter",
-            repository: StubInventory(failure: .notFound)
+            userID: "user-1",
+            reader: StubInventory(failure: .notFound)
         )
         await presenter.appeared()
 

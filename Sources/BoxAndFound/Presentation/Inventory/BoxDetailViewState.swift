@@ -9,6 +9,9 @@ struct BoxDetailViewState: Equatable {
         /// "×3", or nil for a single one — "×1" on every row is noise.
         let quantity: String?
         let isTaken: Bool
+        /// A write is in flight for this row, so a second tap is refused and
+        /// the row can say why it looks unresponsive.
+        let isBusy: Bool
     }
 
     struct Loaded: Equatable {
@@ -29,5 +32,7 @@ struct BoxDetailViewState: Equatable {
     }
 
     var title: String
+    /// Nothing to edit until the box has actually arrived.
+    var isEditVisible: Bool
     var content: Content
 }

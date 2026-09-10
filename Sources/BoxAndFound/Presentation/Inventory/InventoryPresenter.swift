@@ -105,6 +105,12 @@ final class InventoryPresenter: Presenter {
         await reload()
     }
 
+    /// Coming back from a screen that may have written something. Counts, box
+    /// names and rooms can all have moved while it was open.
+    func refresh() async {
+        await reload()
+    }
+
     func signOutTapped() async {
         // The remembered household is one account's, not the next one's.
         activeHousehold.clear()
