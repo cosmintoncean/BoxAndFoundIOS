@@ -11,10 +11,10 @@ a decision — the entitlement shape, the error taxonomy, the palette, the
 `boxes.icon` contract — this one follows it rather than inventing a second
 answer.
 
-Status: **M2 — reading the inventory, green on CI.** Sign in with email,
-Apple, Google or Facebook; the box list with search and a household switcher;
-box detail. 78 passing tests, five of which talk to the real project. Nothing
-writes yet.
+Status: **M3 — editing, green on CI.** Sign in with email, Apple, Google or
+Facebook; the box list with search and a household switcher; box detail;
+creating, editing and deleting boxes, taking and returning items, and photos.
+126 passing tests, five of which talk to the real project.
 
 ---
 
@@ -88,7 +88,7 @@ On a Mac, `brew install xcodegen && xcodegen generate && open BoxAndFound.xcodep
 
 ## Verified
 
-**Green on CI as of run 34473367956:** 78 tests in 13 suites, both targets
+**Green on CI as of run 34483042055:** 126 tests in 18 suites, both targets
 compiling under Xcode 26 in Swift 6 language mode.
 
 **Against the live project.** Five of those tests talk to the real Supabase
@@ -207,6 +207,23 @@ lets tests pass their own without a container.
 **Raw hex, not a colour asset catalogue.** A catalogue would be a fourth place
 the palette lives and could not be diffed against the CSS in a test.
 
+### What M3 deliberately does not do
+
+**No offline queue.** A write that fails says so and leaves the screen open
+with the work still on it. Queueing writes for later needs a local store to
+queue them in, which is the M8 cache, and a half-synced box is worse than a
+failed save.
+
+**The item plan is not atomic.** PostgREST has no client-side transactions,
+so  orders its writes to degrade safely — updates and inserts
+before deletes, so an interrupted run leaves duplicates visible rather than
+silently losing items. Making it atomic needs a Postgres function, worth
+doing at the same time as the one household deletion already uses.
+
+**Creating a room from the editor is missing.**  and 
+are in the repository and tested, but the editor only picks from rooms that
+already exist, so a first room still has to be made on the web or on Android.
+
 ## Server-side work this port creates
 
 None of it is Swift, and the app cannot ship without it:
@@ -235,8 +252,8 @@ Numbered to match the Android client, so "M3" means the same thing in both.
 | M0 | Foundations — config, session state, palette, the pure ports | **done** |
 | M1 | Sign in — email/password, Apple, Google, Facebook | **done**, never run against a live server |
 | M2 | Read the inventory — households, rooms, boxes, items, search | **done** |
-| M3 | Edit — box/room CRUD, items, taken/returned, photo upload | next |
-| M4 | Households and invites — Universal Links on `boxandfound.net` | |
+| M3 | Edit — box/room CRUD, items, taken/returned, photo upload | **done**, bar creating a room from the editor |
+| M4 | Households and invites — Universal Links on `boxandfound.net` | next |
 | M5 | Notifications and nudges — APNs, realtime feed, 24h cooldown | |
 | M6 | Premium — StoreKit 2, verification, gates | |
 | M7 | Room map, view-only — Canvas over the saved JSON | |
