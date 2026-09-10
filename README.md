@@ -11,9 +11,9 @@ a decision — the entitlement shape, the error taxonomy, the palette, the
 `boxes.icon` contract — this one follows it rather than inventing a second
 answer.
 
-Status: **M0 — foundations, green on CI.** Session state, configuration, the
-ported palette and the pure logic, covered by 20 passing tests. There is no
-sign-in screen yet; the root view says so out loud.
+Status: **M1 — sign in, green on CI.** Email and password, Sign in with Apple,
+Google and Facebook, covered by 32 passing tests. Nothing behind sign-in
+exists yet; the root view says so out loud.
 
 ---
 
@@ -102,9 +102,23 @@ configuration trap firing inside the test host. The third is written up under
 Gotchas — it is the one worth remembering.
 
 **Still not verified, and not verifiable from here:** that the app *works*.
-Nothing has rendered a screen. Compiling and passing unit tests says the types
-line up and the pure logic is right; it says nothing about layout, gestures, or
-whether a real sign-in round trip succeeds. That needs a simulator on a Mac, or
+Nothing has rendered a screen and no sign-in has ever been attempted against
+the live project. Compiling and passing unit tests says the types line up and
+the pure logic is right; it says nothing about layout, gestures, or whether
+GoTrue accepts what `AuthRepository` sends it.
+
+Part of that gap can close without a Mac: one CI test that signs in against
+the real project with deliberately wrong credentials and asserts the mapped
+failure comes back as `.invalidCredentials`. That single round trip proves the
+URL, the anon key, the SDK wiring and the error taxonomy at once — it is what
+the Android client checked on a device before trusting any of the screens
+behind sign-in. It needs `SUPABASE_URL` and `SUPABASE_ANON_KEY` as repository
+secrets, which is safe on a public repo: Actions withholds secrets from fork
+pull requests, and the anon key is already public in the web client's
+JavaScript.
+
+What stays out of reach either way is everything visual — layout, gestures,
+whether the Apple sheet actually appears. That needs a simulator on a Mac, or
 TestFlight on a device.
 
 ## Decisions already taken
@@ -156,8 +170,8 @@ Numbered to match the Android client, so "M3" means the same thing in both.
 | | | Status |
 |---|---|---|
 | M0 | Foundations — config, session state, palette, the pure ports | **done** |
-| M1 | Sign in — email/password, Apple, Google, Facebook | next |
-| M2 | Read the inventory — households, rooms, boxes, items, search | |
+| M1 | Sign in — email/password, Apple, Google, Facebook | **done**, never run against a live server |
+| M2 | Read the inventory — households, rooms, boxes, items, search | next |
 | M3 | Edit — box/room CRUD, items, taken/returned, photo upload | |
 | M4 | Households and invites — Universal Links on `boxandfound.net` | |
 | M5 | Notifications and nudges — APNs, realtime feed, 24h cooldown | |
