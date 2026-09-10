@@ -215,12 +215,12 @@ queue them in, which is the M8 cache, and a half-synced box is worse than a
 failed save.
 
 **The item plan is not atomic.** PostgREST has no client-side transactions,
-so  orders its writes to degrade safely — updates and inserts
+so `applyItemPlan` orders its writes to degrade safely — updates and inserts
 before deletes, so an interrupted run leaves duplicates visible rather than
 silently losing items. Making it atomic needs a Postgres function, worth
 doing at the same time as the one household deletion already uses.
 
-**Creating a room from the editor is missing.**  and 
+**Creating a room from the editor is missing.** `createRoom` and `deleteRoom`
 are in the repository and tested, but the editor only picks from rooms that
 already exist, so a first room still has to be made on the web or on Android.
 
