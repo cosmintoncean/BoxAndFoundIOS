@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import BoxAndFound
 
@@ -29,11 +30,16 @@ struct LiveBackendTests {
                 password: "not-the-password-\(UUID().uuidString)"
             )
             Issue.record("Signing in with a made-up account somehow succeeded")
-        } catch {
+        } catch let failure as AuthFailure {
             // .network would mean the URL or connectivity is wrong; .unknown
             // would mean GoTrue said something the mapping has never seen.
             // Either is worth failing over.
-            #expect(error == .invalidCredentials)
+            #expect(failure == .invalidCredentials)
+        } catch {
+            // Typed throws does not always narrow the catch binding, so this
+            // arm is reachable in principle. Anything landing here is a
+            // failure the repository was supposed to have mapped.
+            Issue.record("Unmapped error escaped AuthRepository: \(error)")
         }
     }
 }
