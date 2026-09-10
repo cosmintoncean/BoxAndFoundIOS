@@ -19,9 +19,9 @@ struct RootView: View {
         case .restoring:
             ProgressView()
         case .signedOut:
-            // M1 replaces this with the real sign-in form.
-            PlaceholderView(title: "Signed out", detail: "Sign in arrives in M1.")
+            AuthView()
         case .signedIn(let user):
+            // M2 replaces this with the inventory.
             PlaceholderView(
                 title: user.email ?? "Signed in",
                 detail: user.isPremium ? "Premium" : "Free"

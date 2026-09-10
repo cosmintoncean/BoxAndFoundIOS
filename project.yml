@@ -53,6 +53,13 @@ targets:
         CODE_SIGNING_ALLOWED: NO          # CI builds for the simulator; signing arrives with TestFlight
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+    # Generated alongside the Info.plist rather than committed, for the same
+    # reason. Sign in with Apple does not work without it on a signed build,
+    # and offering Google or Facebook without Apple fails App Store review.
+    entitlements:
+      path: Generated/BoxAndFound.entitlements
+      properties:
+        com.apple.developer.applesignin: [Default]
     info:
       path: Generated/Info.plist
       properties:

@@ -7,7 +7,7 @@ import Foundation
 /// Supabase's raw `error.message` straight on screen, which leaks server
 /// wording into the product, cannot be translated, and changes whenever GoTrue
 /// changes. Mapping to a closed set here means the UI picks its own copy.
-enum AuthFailure: Equatable, Sendable {
+enum AuthFailure: Error, Equatable, Sendable {
     case invalidCredentials
     case emailNotConfirmed
     case emailAlreadyRegistered
