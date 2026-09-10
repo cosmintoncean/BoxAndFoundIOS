@@ -35,8 +35,21 @@ jobs:
       # rather than real credentials. When TestFlight arrives, the release job
       # gets the real values from repository secrets — and will need the same
       # SLASH dance, because xcconfig treats // as a comment.
+      #
+      # These have to be *shaped* like real credentials even though nothing
+      # dials out: the test bundle is hosted inside the app, so running tests
+      # launches BoxAndFoundApp for real, and AppConfig rejecting the example
+      # file's obvious dummies would trap on launch before a single test ran.
+      # Copying the .example file here is exactly the mistake that cost run
+      # 34458632558.
       - name: Write a placeholder Secrets.xcconfig
-        run: cp Config/Secrets.xcconfig.example Config/Secrets.xcconfig
+        run: |
+          cat > Config/Secrets.xcconfig <<'CFG'
+          SLASH = /
+          SUPABASE_URL = https:$(SLASH)$(SLASH)ci-placeholder.supabase.co
+          SUPABASE_ANON_KEY = ci-placeholder-anon-key
+          PREMIUM_EMAILS =
+          CFG
 
       - name: Cache resolved packages
         uses: actions/cache@v4

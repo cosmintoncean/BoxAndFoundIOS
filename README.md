@@ -164,6 +164,13 @@ Numbered to match the Android client, so "M3" means the same thing in both.
   Android repo is `BoxAndFoundAndroid`. This one is `BoxAndFoundIOS`.
 - **`Generated/` and `*.xcodeproj/` are gitignored.** If a `.pbxproj` ever
   appears in a diff, XcodeGen has been bypassed.
+- **Running the tests launches the app.** `@testable import` of an application
+  module needs `TEST_HOST`, which means the test bundle loads inside a real
+  `BoxAndFound` process on a booted simulator. Anything that traps during
+  startup — a `preconditionFailure` on missing configuration, say — takes the
+  whole test run down with "Early unexpected exit" and no test results. It also
+  costs about six minutes a run. Moving the `Data` layer into its own framework
+  target would fix both; that is the first thing to do at M2.
 - **Strict concurrency is set to `minimal` on purpose.** supabase-swift 2.x is
   not fully `Sendable`-audited; turning it up before the first green build
   would mix language-mode complaints in with real errors. Revisit at M2.
