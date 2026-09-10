@@ -87,6 +87,58 @@ struct AuthPresenterTests {
         #expect(!presenter.viewState.isPasswordVisible)
     }
 
+    @Test("Forgetting the password swaps the pane, keeping the address typed")
+    func forgotPane() {
+        let presenter = AuthPresenter()
+        presenter.emailChanged("someone@example.com")
+        #expect(presenter.viewState.isForgotPasswordOffered)
+
+        presenter.forgotPasswordTapped()
+        let state = presenter.viewState
+        #expect(state.stage == .forgotPassword)
+        #expect(state.heading == "Reset your password")
+        #expect(state.submitTitle == "Send reset link")
+        #expect(state.email == "someone@example.com")
+        // Nothing to forget on this pane, so nothing to offer.
+        #expect(!state.isForgotPasswordOffered)
+    }
+
+    @Test("The reset request needs only an address")
+    func forgotGating() {
+        let presenter = AuthPresenter()
+        presenter.forgotPasswordTapped()
+        // The password field is not on that pane, so gating on it would leave
+        // the button dead for exactly the person who has forgotten it.
+        #expect(!presenter.viewState.isSubmitEnabled)
+
+        presenter.emailChanged("someone@example.com")
+        #expect(presenter.viewState.isSubmitEnabled)
+
+        presenter.emailChanged("not-an-email")
+        #expect(!presenter.viewState.isSubmitEnabled)
+    }
+
+    @Test("Backing out, or reaching for a tab, returns to the form")
+    func leavingTheForgotPane() {
+        let presenter = AuthPresenter()
+        presenter.forgotPasswordTapped()
+        presenter.backToSignInTapped()
+        #expect(presenter.viewState.stage == .credentials)
+        #expect(presenter.viewState.heading == "Welcome back")
+
+        presenter.forgotPasswordTapped()
+        presenter.modeSelected(.signUp)
+        #expect(presenter.viewState.stage == .credentials)
+    }
+
+    /// There is no way to tell an address with an account from one without,
+    /// and the copy must not imply otherwise.
+    @Test("The reset confirmation does not claim the mail was sent")
+    func resetConfirmationHedges() {
+        let text = AuthCopy.resetLinkRequested.text
+        #expect(AuthCopy.resetLinkRequested.kind == .success)
+        #expect(text.contains("If that email has an account"))
+    }
     /// Apple's guideline is that Sign in with Apple is at least as prominent
     /// as any other third-party option. Ordering is decided by the presenter,
     /// so it can be checked here rather than by eye.

@@ -17,6 +17,11 @@ struct AuthViewState: Equatable {
         var id: Self { self }
     }
 
+    /// Which pane the screen is showing. The tabs, the password field and the
+    /// provider buttons all belong to `.credentials` — none of them mean
+    /// anything once someone is asking for a reset link.
+    enum Stage: Equatable { case credentials, forgotPassword }
+
     struct ModeOption: Equatable, Identifiable {
         let mode: Mode
         let title: String
@@ -40,6 +45,7 @@ struct AuthViewState: Equatable {
         var id: Kind { kind }
     }
 
+    var stage: Stage
     var mode: Mode
     var modes: [ModeOption]
     var heading: String
@@ -55,6 +61,10 @@ struct AuthViewState: Equatable {
     var submitTitle: String
     var isSubmitEnabled: Bool
     var isSubmitting: Bool
+
+    /// Whether to offer "Forgot password?" at all: there is nothing to recover
+    /// on the sign-up tab.
+    var isForgotPasswordOffered: Bool
 
     var notice: Notice?
     var providers: [ProviderButton]

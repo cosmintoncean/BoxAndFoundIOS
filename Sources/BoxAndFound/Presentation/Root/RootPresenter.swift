@@ -11,13 +11,23 @@ import Observation
 final class RootPresenter: Presenter {
 
     private let session: SessionStore
+    private let repository: AuthRepository
 
-    init(session: SessionStore = SessionStore()) {
+    /// Set the moment a recovery link is opened, before the session it
+    /// carries has been redeemed — otherwise the app would show the inventory
+    /// for the instant between the two.
+    private var isResettingPassword = false
+
+    init(session: SessionStore = SessionStore(), repository: AuthRepository = AuthRepository()) {
         self.session = session
+        self.repository = repository
     }
 
     var viewState: RootViewState {
-        switch session.state {
+        if isResettingPassword { return RootViewState(content: .passwordReset) }
+        // Explicit: the guard above makes this a multi-statement body, so the
+        // switch expression no longer returns on its own.
+        return switch session.state {
         case .restoring:
             RootViewState(content: .loading)
         case .signedOut:
@@ -29,6 +39,26 @@ final class RootPresenter: Presenter {
 
     func start() {
         session.start()
+    }
+
+    /// Every link the app is opened with lands here.
+    ///
+    /// OAuth does not: `ASWebAuthenticationSession` hands its callback
+    /// straight back to the SDK inside the call that started it. A reset link
+    /// is opened by Mail instead, so this is the only place it can be caught.
+    func opened(_ url: URL) async {
+        guard RecoveryLink.isRecovery(url) else { return }
+        isResettingPassword = true
+        // A spent or expired link leaves no session. The reset screen still
+        // goes up, and GoTrue reports the refusal there when they try to save
+        // — better than a link that silently does nothing.
+        try? await repository.completeRecovery(from: url)
+    }
+
+    /// The new password is set, or they backed out. Either way this screen is
+    /// done and the session decides again.
+    func passwordResetFinished() {
+        isResettingPassword = false
     }
 
     func signOutTapped() async {

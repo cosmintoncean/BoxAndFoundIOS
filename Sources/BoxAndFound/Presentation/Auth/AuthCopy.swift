@@ -21,6 +21,15 @@ enum AuthCopy {
         text: "Account created. Check your email to confirm your address, then sign in."
     )
 
+    /// Deliberately non-committal: GoTrue answers a request for an
+    /// unregistered address exactly as it answers a real one, so claiming the
+    /// mail was sent would be a guess — and a screen that could tell the two
+    /// apart would be a way to find out who has an account.
+    static let resetLinkRequested = AuthViewState.Notice(
+        kind: .success,
+        text: "If that email has an account, a reset link is on its way. It is good for one hour."
+    )
+
     private static func message(for failure: AuthFailure) -> String? {
         switch failure {
         case .invalidCredentials:

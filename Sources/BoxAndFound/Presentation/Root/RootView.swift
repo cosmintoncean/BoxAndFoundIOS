@@ -19,6 +19,8 @@ struct RootView: View {
             ProgressView()
         case .signedOut:
             AuthView()
+        case .passwordReset:
+            PasswordResetView { presenter.passwordResetFinished() }
         case .signedIn(let userID):
             InventoryView(userID: userID) {
                 await presenter.signOutTapped()

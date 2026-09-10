@@ -9,6 +9,7 @@ final class AuthPresenter: Presenter {
 
     // MARK: - The only state there is
 
+    private var stage: AuthViewState.Stage = .credentials
     private var mode: AuthViewState.Mode = .signIn
     private var name = ""
     private var email = ""
@@ -34,12 +35,13 @@ final class AuthPresenter: Presenter {
     /// touches, so the view redraws when any of them moves.
     var viewState: AuthViewState {
         AuthViewState(
+            stage: stage,
             mode: mode,
             modes: [
                 .init(mode: .signIn, title: "Sign in"),
                 .init(mode: .signUp, title: "Sign up"),
             ],
-            heading: mode == .signIn ? "Welcome back" : "Create your account",
+            heading: heading,
             name: name,
             isNameFieldVisible: mode == .signUp,
             email: email,
@@ -48,9 +50,10 @@ final class AuthPresenter: Presenter {
             passwordHint: mode == .signUp
                 ? "At least \(Credentials.minPasswordLength) characters"
                 : nil,
-            submitTitle: mode == .signIn ? "Sign in" : "Create account",
+            submitTitle: submitTitle,
             isSubmitEnabled: canSubmit,
             isSubmitting: isSubmitting,
+            isForgotPasswordOffered: stage == .credentials && mode == .signIn,
             notice: notice,
             providers: [
                 .init(kind: .apple, title: "Continue with Apple"),
@@ -60,12 +63,29 @@ final class AuthPresenter: Presenter {
         )
     }
 
+    private var heading: String {
+        switch stage {
+        case .forgotPassword: "Reset your password"
+        case .credentials: mode == .signIn ? "Welcome back" : "Create your account"
+        }
+    }
+
+    private var submitTitle: String {
+        switch stage {
+        case .forgotPassword: "Send reset link"
+        case .credentials: mode == .signIn ? "Sign in" : "Create account"
+        }
+    }
+
     /// Only gates the button. GoTrue is still the authority on what it
     /// accepts — this just avoids a round trip for an obvious typo.
+    ///
+    /// The reset request needs an address and nothing else: the password
+    /// field is not on that pane, and gating on it would leave the button
+    /// dead for exactly the person who has forgotten the password.
     private var canSubmit: Bool {
-        !isSubmitting
-            && Credentials.isEmailShaped(email)
-            && Credentials.isPasswordLongEnough(password)
+        guard !isSubmitting, Credentials.isEmailShaped(email) else { return false }
+        return stage == .forgotPassword || Credentials.isPasswordLongEnough(password)
     }
 
     // MARK: - Intents
@@ -73,6 +93,8 @@ final class AuthPresenter: Presenter {
     func modeSelected(_ mode: AuthViewState.Mode) {
         guard mode != self.mode else { return }
         self.mode = mode
+        // Reaching the tabs at all means leaving the reset pane behind.
+        stage = .credentials
         // Switching tabs clears the last outcome. A "check your email" notice
         // left hanging over the sign-in form reads as an error.
         notice = nil
@@ -83,8 +105,29 @@ final class AuthPresenter: Presenter {
     func passwordChanged(_ value: String) { password = value }
     func passwordVisibilityToggled() { isPasswordVisible.toggle() }
 
+    /// Opens the "email me a link" pane, keeping whatever address was typed.
+    func forgotPasswordTapped() {
+        stage = .forgotPassword
+        notice = nil
+    }
+
+    func backToSignInTapped() {
+        stage = .credentials
+        notice = nil
+    }
+
     func submitTapped() async {
         guard canSubmit else { return }
+        if stage == .forgotPassword {
+            await perform {
+                try await self.repository.sendPasswordReset(email: self.email)
+                // Success here only means GoTrue accepted the request: it
+                // answers the same way for an address with no account, so
+                // saying "sent" would be a guess.
+                self.notice = AuthCopy.resetLinkRequested
+            }
+            return
+        }
         await perform {
             switch self.mode {
             case .signIn:

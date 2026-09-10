@@ -81,6 +81,44 @@ struct AuthRepository: Sendable {
         }
     }
 
+    /// Email a password-reset link.
+    ///
+    /// GoTrue answers the same way whether or not the address has an account,
+    /// so this cannot be used to find out who is registered — the screen says
+    /// as much rather than claiming the mail was sent.
+    ///
+    /// The link comes back through the same custom scheme the OAuth callback
+    /// uses, so tapping it in Mail opens this app rather than the website.
+    func sendPasswordReset(email: String) async throws(AuthFailure) {
+        try await run {
+            try await client.auth.resetPasswordForEmail(
+                Credentials.normaliseEmail(email),
+                redirectTo: AppConfig.oauthCallback
+            )
+        }
+    }
+
+    /// Complete a recovery link: turn the token it carries into a session.
+    ///
+    /// Unlike the OAuth flow, nothing hands this back to the SDK on its own —
+    /// the link is opened by Mail, not by an `ASWebAuthenticationSession` this
+    /// app started, so the URL arrives through `onOpenURL` and has to be
+    /// redeemed here.
+    func completeRecovery(from url: URL) async throws(AuthFailure) {
+        try await run { _ = try await client.auth.session(from: url) }
+    }
+
+    /// Set a new password for the session a recovery link established.
+    ///
+    /// Only meaningful straight after that link is opened: the token it
+    /// carries is what authorises the change. An expired or already-spent link
+    /// leaves no session, and GoTrue rejects the update rather than changing
+    /// anything.
+    func updatePassword(_ newPassword: String) async throws(AuthFailure) {
+        try await run {
+            _ = try await client.auth.update(user: UserAttributes(password: newPassword))
+        }
+    }
     /// Signs out on every device, as the web client does.
     func signOut() async throws(AuthFailure) {
         try await run { try await client.auth.signOut() }

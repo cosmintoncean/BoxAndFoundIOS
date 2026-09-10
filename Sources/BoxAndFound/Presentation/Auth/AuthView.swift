@@ -24,12 +24,21 @@ struct AuthView: View {
         ScrollView {
             VStack(spacing: 20) {
                 header(state)
-                modePicker(state)
-                fields(state)
-                notice(state)
-                submitButton(state)
-                divider
-                providers(state)
+                if state.stage == .forgotPassword {
+                    forgotIntro
+                    emailField(state)
+                    notice(state)
+                    submitButton(state)
+                    backToSignInButton
+                } else {
+                    modePicker(state)
+                    fields(state)
+                    forgotPasswordButton(state)
+                    notice(state)
+                    submitButton(state)
+                    divider
+                    providers(state)
+                }
             }
             .padding(24)
             .frame(maxWidth: 480)
@@ -74,19 +83,7 @@ struct AuthView: View {
                 }
             }
 
-            labelled("Email") {
-                TextField("you@example.com", text: Binding(
-                    get: { state.email },
-                    set: { presenter.emailChanged($0) }
-                ))
-                .textContentType(.emailAddress)
-                .keyboardType(.emailAddress)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .focused($focus, equals: .email)
-                .submitLabel(.next)
-                .onSubmit { focus = .password }
-            }
+            emailField(state)
 
             labelled("Password") {
                 HStack {
@@ -127,6 +124,60 @@ struct AuthView: View {
         }
     }
 
+    /// Shared by both panes: the reset request asks for exactly the same
+    /// address, so it would be the same field twice over.
+    private func emailField(_ state: AuthViewState) -> some View {
+        labelled("Email") {
+            TextField("you@example.com", text: Binding(
+                get: { state.email },
+                set: { presenter.emailChanged($0) }
+            ))
+            .textContentType(.emailAddress)
+            .keyboardType(.emailAddress)
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled()
+            .focused($focus, equals: .email)
+            .submitLabel(state.stage == .forgotPassword ? .go : .next)
+            .onSubmit {
+                if state.stage == .forgotPassword {
+                    focus = nil
+                    Task { await presenter.submitTapped() }
+                } else {
+                    focus = .password
+                }
+            }
+        }
+    }
+
+    private var forgotIntro: some View {
+        Text("Enter the email you sign in with and we’ll send you a link to set a new password.")
+            .font(.subheadline)
+            .foregroundStyle(Color.bfTextMuted)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func forgotPasswordButton(_ state: AuthViewState) -> some View {
+        if state.isForgotPasswordOffered {
+            Button("Forgot password?") {
+                focus = nil
+                presenter.forgotPasswordTapped()
+            }
+            .font(.footnote.weight(.medium))
+            .foregroundStyle(Color.bfTextMuted)
+            .frame(maxWidth: .infinity, alignment: .trailing)
+            .disabled(state.isSubmitting)
+        }
+    }
+
+    private var backToSignInButton: some View {
+        Button("Back to sign in") {
+            focus = nil
+            presenter.backToSignInTapped()
+        }
+        .font(.subheadline.weight(.medium))
+        .foregroundStyle(Color.bfTextMuted)
+    }
     @ViewBuilder
     private func notice(_ state: AuthViewState) -> some View {
         if let notice = state.notice {

@@ -8,6 +8,9 @@ struct BoxAndFoundApp: App {
         WindowGroup {
             RootView(presenter: presenter)
                 .task { presenter.start() }
+                .onOpenURL { url in
+                    Task { await presenter.opened(url) }
+                }
         }
     }
 }
