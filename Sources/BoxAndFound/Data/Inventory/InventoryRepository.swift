@@ -7,7 +7,7 @@ import Supabase
 /// Network only, deliberately. Android grew a Room cache later; the milestone
 /// table keeps the offline copy at M8 here too, because a half-populated cache
 /// that looks like an empty household is worse than an error.
-struct InventoryRepository: Sendable {
+struct InventoryRepository: InventoryReading {
     private let client: SupabaseClient
 
     init(client: SupabaseClient = SupabaseProvider.shared) {
@@ -106,7 +106,13 @@ struct InventoryRepository: Sendable {
 
 extension InventoryFailure {
     /// The one place that knows how PostgREST and URLSession spell failure.
+    ///
+    /// Idempotent on purpose: a caller that already holds an `InventoryFailure`
+    /// can pass it straight back through, which lets every `catch` be an
+    /// untyped one and stay correct whether or not typed throws survived
+    /// inference at that call site.
     static func from(_ error: Error) -> InventoryFailure {
+        if let failure = error as? InventoryFailure { return failure }
         if error is CancellationError { return .network }
         if error is URLError { return .network }
         if let postgrest = error as? PostgrestError {

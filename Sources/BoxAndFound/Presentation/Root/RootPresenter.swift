@@ -23,11 +23,7 @@ final class RootPresenter: Presenter {
         case .signedOut:
             RootViewState(content: .signedOut)
         case .signedIn(let user):
-            // M2 replaces this with the inventory.
-            RootViewState(content: .signedIn(
-                title: user.email ?? "Signed in",
-                subtitle: user.isPremium ? "Premium" : "Free"
-            ))
+            RootViewState(content: .signedIn(userID: user.id))
         }
     }
 

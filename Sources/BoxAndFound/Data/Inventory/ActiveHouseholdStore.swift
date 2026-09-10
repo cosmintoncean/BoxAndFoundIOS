@@ -4,10 +4,15 @@ import Foundation
 /// ask again. The web client keeps the same thing in
 /// `localStorage.activeHouseholdId`, and Android in a DataStore preference.
 ///
+/// Not `Sendable`: `UserDefaults` is not, and this does not need to be. The
+/// store is held by a main-actor presenter and read from there, so nothing
+/// carries it across an isolation boundary. Marking it `@unchecked Sendable`
+/// to say so would be claiming a guarantee nobody needs.
+///
 /// The id is a hint, never an authority: `resolve` validates it against the
 /// households actually returned, so being removed from one cannot strand you
 /// on a screen you can no longer read.
-struct ActiveHouseholdStore: Sendable {
+struct ActiveHouseholdStore {
     private let defaults: UserDefaults
     private let key = "activeHouseholdId"
 
