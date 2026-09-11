@@ -37,6 +37,22 @@ final class InventoryFlowUITests: XCTestCase {
         XCTAssertTrue(element.waitForExistence(timeout: timeout), message, file: file, line: line)
     }
 
+    /// Brings an element below the fold into view.
+    ///
+    /// XCUITest does not scroll to find things: an element off-screen in a
+    /// `Form` is simply absent from the query, which reads exactly like a view
+    /// that was never built. The editor is taller than a phone — name,
+    /// location, room, a twelve-icon grid and a photo section all sit above
+    /// the item list — so anything below that has to be scrolled to first.
+    @discardableResult
+    private func scroll(to element: XCUIElement, in app: XCUIApplication, swipes: Int = 6) -> Bool {
+        for _ in 0..<swipes {
+            if element.exists && element.isHittable { return true }
+            app.swipeUp()
+        }
+        return element.exists && element.isHittable
+    }
+
     // MARK: -
 
     func testSignedInLaunchLandsOnTheInventory() {
@@ -115,10 +131,16 @@ final class InventoryFlowUITests: XCTestCase {
         name.typeText("Camping Gear")
 
         let newItem = app.textFields["Add an item"]
+        XCTAssertTrue(
+            scroll(to: newItem, in: app),
+            "The add-an-item field never came into view"
+        )
         newItem.tap()
         newItem.typeText("Tent")
         app.buttons["Add"].tap()
 
+        // The save button lives in the toolbar, so it stays put however far
+        // the form has been scrolled.
         app.buttons["Create box"].tap()
 
         assertVisible(app.staticTexts["Camping Gear"], "The new box never reached the list")
