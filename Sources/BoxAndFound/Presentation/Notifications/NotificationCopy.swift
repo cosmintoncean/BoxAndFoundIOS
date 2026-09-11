@@ -66,3 +66,34 @@ enum NotificationCopy {
         return formatter.localizedString(for: date, relativeTo: now)
     }
 }
+
+/// Where asking for something back becomes words.
+enum NudgeCopy {
+
+    static func sheetTitle(_ itemName: String) -> String {
+        "Ask for \(itemName) back?"
+    }
+
+    /// Nil when the window is clear. Rounded up to the next whole unit,
+    /// because "in 0 hours" is not an answer and a countdown that ticks to
+    /// zero on screen invites a tap that will fail.
+    static func cooldownNote(_ availability: NudgeAvailability) -> String? {
+        guard case .onCooldown(let remaining) = availability else { return nil }
+        let hours = Int((remaining / 3600).rounded(.up))
+        if hours > 1 {
+            return "You asked recently. You can ask again in about \(hours) hours."
+        }
+        let minutes = max(1, Int((remaining / 60).rounded(.up)))
+        return minutes > 1
+            ? "You asked recently. You can ask again in about \(minutes) minutes."
+            : "You asked recently. You can ask again in about a minute."
+    }
+
+    /// "Cosmin asked for the Scarf back", or the item alone when the sender is
+    /// not known — the row keeps a sender id, not a name.
+    static func pendingNote(itemName: String, message: String?) -> String {
+        let base = "Someone asked for \(itemName) back"
+        guard let message = message?.trimmed.nilIfEmpty else { return base + "." }
+        return base + ": \(message)"
+    }
+}

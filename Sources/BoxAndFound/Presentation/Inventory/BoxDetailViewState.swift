@@ -12,6 +12,21 @@ struct BoxDetailViewState: Equatable {
         /// A write is in flight for this row, so a second tap is refused and
         /// the row can say why it looks unresponsive.
         let isBusy: Bool
+        /// Offered only for an item someone else took. Asking yourself for
+        /// something back is not a feature.
+        let canAskBack: Bool
+    }
+
+    /// The sheet for asking an item back.
+    struct NudgeSheet: Equatable {
+        let itemID: String
+        let title: String
+        let message: String
+        /// "You asked recently. You can ask again in about 3 hours." Nil when
+        /// the window is clear.
+        let cooldownNote: String?
+        let canSend: Bool
+        let isSending: Bool
     }
 
     struct Loaded: Equatable {
@@ -23,6 +38,9 @@ struct BoxDetailViewState: Equatable {
         let items: [ItemRow]
         /// Shown in place of the list when the box has nothing in it.
         let emptyMessage: String?
+        /// Requests pointed at this person for items in this box, already
+        /// worded — "Cosmin asked for the Scarf back".
+        let pendingNotes: [String]
     }
 
     enum Content: Equatable {
@@ -35,4 +53,7 @@ struct BoxDetailViewState: Equatable {
     /// Nothing to edit until the box has actually arrived.
     var isEditVisible: Bool
     var content: Content
+    var nudgeSheet: NudgeSheet?
+    /// Said once, after a request goes out.
+    var notice: String?
 }

@@ -14,7 +14,12 @@ struct BoxDetailView: View {
         self.householdID = householdID
         self.userID = userID
         _presenter = State(
-            initialValue: BoxDetailPresenter(boxID: boxID, title: title, userID: userID)
+            initialValue: BoxDetailPresenter(
+                boxID: boxID,
+                title: title,
+                householdID: householdID,
+                userID: userID
+            )
         )
     }
 
@@ -36,6 +41,14 @@ struct BoxDetailView: View {
         }
         .navigationDestination(isPresented: $isEditing) {
             BoxEditorView(householdID: householdID, boxID: boxID, userID: userID)
+        }
+        .sheet(isPresented: Binding(
+            get: { presenter.viewState.nudgeSheet != nil },
+            set: { if !$0 { presenter.dismissNudgeTapped() } }
+        )) {
+            if let sheet = presenter.viewState.nudgeSheet {
+                nudgeSheet(sheet)
+            }
         }
         .onChange(of: isEditing) { _, editing in
             // Coming back from the editor: the box may have been renamed, had
@@ -71,6 +84,24 @@ struct BoxDetailView: View {
     private func loaded(_ box: BoxDetailViewState.Loaded) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                ForEach(Array(box.pendingNotes.enumerated()), id: \.offset) { _, note in
+                    Label(note, systemImage: "hand.wave")
+                        .font(.subheadline)
+                        .foregroundStyle(Color.bfAccent)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                        .background(Color.bfAccentSoft, in: .rect(cornerRadius: 10))
+                }
+
+                if let notice = presenter.viewState.notice {
+                    Text(notice)
+                        .font(.subheadline)
+                        .foregroundStyle(Color.bfGreen)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                        .background(Color.bfGreenSoft, in: .rect(cornerRadius: 10))
+                }
+
                 if let url = box.imageURL {
                     AsyncImage(url: url) { image in
                         image.resizable().scaledToFill()
@@ -113,6 +144,43 @@ struct BoxDetailView: View {
             }
             .padding(20)
         }
+    }
+
+    private func nudgeSheet(_ sheet: BoxDetailViewState.NudgeSheet) -> some View {
+        NavigationStack {
+            Form {
+                if let cooldown = sheet.cooldownNote {
+                    Section {
+                        Text(cooldown)
+                            .font(.subheadline)
+                            .foregroundStyle(Color.bfTextMuted)
+                    }
+                }
+                Section("Add a note") {
+                    TextField("Optional", text: Binding(
+                        get: { sheet.message },
+                        set: { presenter.nudgeMessageChanged($0) }
+                    ), axis: .vertical)
+                    .lineLimit(1...4)
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .background(Color.bfBg)
+            .navigationTitle(sheet.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { presenter.dismissNudgeTapped() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Ask") {
+                        Task { await presenter.sendNudgeTapped() }
+                    }
+                    .disabled(!sheet.canSend)
+                }
+            }
+        }
+        .presentationDetents([.medium])
     }
 
     private func summary(_ box: BoxDetailViewState.Loaded) -> some View {
@@ -176,5 +244,14 @@ struct BoxDetailView: View {
         .disabled(item.isBusy)
         .accessibilityLabel(item.isTaken ? "\(item.name), taken" : item.name)
         .accessibilityHint(item.isTaken ? "Put it back" : "Take it")
+        .contextMenu {
+            if item.canAskBack {
+                Button {
+                    Task { await presenter.askBackTapped(item.id) }
+                } label: {
+                    Label("Ask for it back", systemImage: "hand.wave")
+                }
+            }
+        }
     }
 }

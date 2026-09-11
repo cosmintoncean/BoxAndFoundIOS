@@ -104,6 +104,51 @@ private struct StubReader: InventoryReading {
     }
 }
 
+
+/// Records nudges instead of sending them.
+///
+/// Passed explicitly everywhere a BoxDetailPresenter is built in these tests:
+/// the default would be the real repository, and a unit test that quietly
+/// opens a socket is a slow test that fails on a train.
+private final class StubNudges: NudgeManaging, @unchecked Sendable {
+    var availabilityToReturn: NudgeAvailability = .available
+    var pendingToReturn: [Nudge] = []
+    var sent: [(itemID: String, recipientID: String, itemName: String, message: String?)] = []
+    var failure: NotificationFailure?
+
+    func availability(
+        itemID: String,
+        now: Date
+    ) async throws(NotificationFailure) -> NudgeAvailability {
+        if let failure { throw failure }
+        return availabilityToReturn
+    }
+
+    func send(
+        itemID: String,
+        boxID: String,
+        householdID: String,
+        senderID: String,
+        recipientID: String,
+        itemName: String,
+        boxName: String?,
+        message: String?
+    ) async throws(NotificationFailure) {
+        if let failure { throw failure }
+        sent.append((itemID, recipientID, itemName, message))
+    }
+
+    func pending(
+        recipientID: String,
+        householdID: String
+    ) async throws(NotificationFailure) -> [Nudge] {
+        if let failure { throw failure }
+        return pendingToReturn
+    }
+
+    func dismiss(nudgeID: String) async throws(NotificationFailure) {}
+}
+
 @Suite("Box editor")
 @MainActor
 struct BoxEditorPresenterTests {
@@ -423,9 +468,11 @@ struct BoxDetailWriteTests {
         let presenter = BoxDetailPresenter(
             boxID: "b1",
             title: "Winter",
+            householdID: "h1",
             userID: "user-1",
             reader: StubReader(box: box),
-            writer: writer
+            writer: writer,
+            nudges: StubNudges()
         )
         await presenter.appeared()
         await presenter.itemTapped("i1")
@@ -445,9 +492,11 @@ struct BoxDetailWriteTests {
         let presenter = BoxDetailPresenter(
             boxID: "b1",
             title: "Winter",
+            householdID: "h1",
             userID: "user-1",
             reader: StubReader(box: box),
-            writer: writer
+            writer: writer,
+            nudges: StubNudges()
         )
         await presenter.appeared()
         await presenter.itemTapped("i1")
@@ -461,13 +510,145 @@ struct BoxDetailWriteTests {
         let presenter = BoxDetailPresenter(
             boxID: "b1",
             title: "Winter",
+            householdID: "h1",
             userID: "user-1",
             reader: StubReader(box: Box(id: "b1", name: "Winter")),
-            writer: writer
+            writer: writer,
+            nudges: StubNudges()
         )
         await presenter.appeared()
         await presenter.itemTapped("not-here")
 
         #expect(writer.takenCalls.isEmpty)
+    }
+}
+
+@Suite("Asking for an item back")
+@MainActor
+struct NudgeFromBoxDetailTests {
+
+    private func box(takenBy: String?) -> Box {
+        Box(id: "b1", name: "Winter", items: [
+            BoxItem(id: "i1", name: "Scarf", isTaken: takenBy != nil, takenBy: takenBy),
+        ])
+    }
+
+    private func makePresenter(
+        _ box: Box,
+        nudges: StubNudges = StubNudges()
+    ) -> BoxDetailPresenter {
+        BoxDetailPresenter(
+            boxID: "b1",
+            title: "Winter",
+            householdID: "h1",
+            userID: "user-1",
+            reader: StubReader(box: box),
+            writer: StubWriter(),
+            nudges: nudges
+        )
+    }
+
+    private func rows(_ presenter: BoxDetailPresenter) -> [BoxDetailViewState.ItemRow] {
+        guard case .loaded(let loaded) = presenter.viewState.content else { return [] }
+        return loaded.items
+    }
+
+    @Test("Asking is offered for an item someone else took")
+    func offeredForSomeoneElse() async {
+        let presenter = makePresenter(box(takenBy: "someone-else"))
+        await presenter.appeared()
+        #expect(rows(presenter).first?.canAskBack == true)
+    }
+
+    /// Asking yourself for something back is not a feature.
+    @Test("Asking is not offered for an item you took yourself")
+    func notOfferedForYourOwn() async {
+        let presenter = makePresenter(box(takenBy: "user-1"))
+        await presenter.appeared()
+        #expect(rows(presenter).first?.canAskBack == false)
+    }
+
+    @Test("Asking is not offered for an item nobody has taken")
+    func notOfferedWhenPresent() async {
+        let presenter = makePresenter(box(takenBy: nil))
+        await presenter.appeared()
+        #expect(rows(presenter).first?.canAskBack == false)
+    }
+
+    @Test("Sending carries the recipient and a snapshot of the name")
+    func sending() async {
+        let nudges = StubNudges()
+        let presenter = makePresenter(box(takenBy: "someone-else"), nudges: nudges)
+        await presenter.appeared()
+
+        await presenter.askBackTapped("i1")
+        presenter.nudgeMessageChanged("Need it tonight")
+        await presenter.sendNudgeTapped()
+
+        #expect(nudges.sent.count == 1)
+        #expect(nudges.sent[0].recipientID == "someone-else")
+        #expect(nudges.sent[0].itemName == "Scarf")
+        #expect(nudges.sent[0].message == "Need it tonight")
+        // The sheet closes and says so.
+        #expect(presenter.viewState.nudgeSheet == nil)
+        #expect(presenter.viewState.notice == NotificationCopy.nudgeSent)
+    }
+
+    @Test("Inside the window the sheet explains itself and refuses to send")
+    func cooldownBlocks() async {
+        let nudges = StubNudges()
+        nudges.availabilityToReturn = .onCooldown(remaining: 3 * 3600)
+        let presenter = makePresenter(box(takenBy: "someone-else"), nudges: nudges)
+        await presenter.appeared()
+
+        await presenter.askBackTapped("i1")
+
+        let sheet = presenter.viewState.nudgeSheet
+        #expect(sheet?.canSend == false)
+        #expect(sheet?.cooldownNote?.contains("3 hours") == true)
+
+        await presenter.sendNudgeTapped()
+        #expect(nudges.sent.isEmpty)
+    }
+
+    /// The server enforces the window regardless, so refusing on a failed
+    /// lookup would be stricter than the rule itself.
+    @Test("A cooldown that cannot be read does not block the ask")
+    func unreadableCooldownAllows() async {
+        let nudges = StubNudges()
+        nudges.failure = .network
+        let presenter = makePresenter(box(takenBy: "someone-else"), nudges: nudges)
+        await presenter.appeared()
+
+        await presenter.askBackTapped("i1")
+        #expect(presenter.viewState.nudgeSheet?.canSend == true)
+    }
+
+    @Test("Requests pointed at you show on the box they are about")
+    func pendingNotesAppear() async {
+        let nudges = StubNudges()
+        nudges.pendingToReturn = [
+            Nudge(
+                id: "n1", itemID: "i1", boxID: "b1", senderID: "someone-else",
+                itemName: "Scarf", boxName: "Winter", message: "Please",
+                createdAt: "2026-09-11T12:00:00Z"
+            ),
+            // A different box: not this screen's business.
+            Nudge(
+                id: "n2", itemID: "i9", boxID: "b9", senderID: "someone-else",
+                itemName: "Hammer", boxName: "Tools", message: nil,
+                createdAt: "2026-09-11T12:00:00Z"
+            ),
+        ]
+        let presenter = makePresenter(box(takenBy: "user-1"), nudges: nudges)
+        await presenter.appeared()
+
+        guard case .loaded(let loaded) = presenter.viewState.content else {
+            Issue.record("Expected a loaded box")
+            return
+        }
+        #expect(loaded.pendingNotes.count == 1)
+        #expect(loaded.pendingNotes[0].contains("Scarf"))
+        #expect(loaded.pendingNotes[0].contains("Please"))
     }
 }

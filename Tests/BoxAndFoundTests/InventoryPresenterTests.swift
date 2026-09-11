@@ -42,6 +42,51 @@ private func emptyDefaults() -> UserDefaults {
     UserDefaults(suiteName: "test-\(UUID().uuidString)")!
 }
 
+
+/// Records nudges instead of sending them.
+///
+/// Passed explicitly everywhere a BoxDetailPresenter is built in these tests:
+/// the default would be the real repository, and a unit test that quietly
+/// opens a socket is a slow test that fails on a train.
+private final class StubNudges: NudgeManaging, @unchecked Sendable {
+    var availabilityToReturn: NudgeAvailability = .available
+    var pendingToReturn: [Nudge] = []
+    var sent: [(itemID: String, recipientID: String, itemName: String, message: String?)] = []
+    var failure: NotificationFailure?
+
+    func availability(
+        itemID: String,
+        now: Date
+    ) async throws(NotificationFailure) -> NudgeAvailability {
+        if let failure { throw failure }
+        return availabilityToReturn
+    }
+
+    func send(
+        itemID: String,
+        boxID: String,
+        householdID: String,
+        senderID: String,
+        recipientID: String,
+        itemName: String,
+        boxName: String?,
+        message: String?
+    ) async throws(NotificationFailure) {
+        if let failure { throw failure }
+        sent.append((itemID, recipientID, itemName, message))
+    }
+
+    func pending(
+        recipientID: String,
+        householdID: String
+    ) async throws(NotificationFailure) -> [Nudge] {
+        if let failure { throw failure }
+        return pendingToReturn
+    }
+
+    func dismiss(nudgeID: String) async throws(NotificationFailure) {}
+}
+
 @Suite("Inventory presenter")
 @MainActor
 struct InventoryPresenterTests {
@@ -244,8 +289,10 @@ struct BoxDetailPresenterTests {
         let presenter = BoxDetailPresenter(
             boxID: "b1",
             title: "Winter Clothes",
+            householdID: "h1",
             userID: "user-1",
-            reader: StubInventory()
+            reader: StubInventory(),
+            nudges: StubNudges()
         )
         #expect(presenter.viewState.title == "Winter Clothes")
         #expect(presenter.viewState.content == .loading)
@@ -258,7 +305,8 @@ struct BoxDetailPresenterTests {
             BoxItem(id: "i2", name: "Gloves", quantity: 3, position: 1, isTaken: true),
         ]))
         let presenter = BoxDetailPresenter(
-            boxID: "b1", title: "Winter", userID: "user-1", reader: stub
+            boxID: "b1", title: "Winter", householdID: "h1", userID: "user-1",
+            reader: stub, nudges: StubNudges()
         )
         await presenter.appeared()
 
@@ -278,7 +326,8 @@ struct BoxDetailPresenterTests {
     func emptyBox() async {
         let stub = StubInventory(singleBox: Box(id: "b1", name: "Spare"))
         let presenter = BoxDetailPresenter(
-            boxID: "b1", title: "Spare", userID: "user-1", reader: stub
+            boxID: "b1", title: "Spare", householdID: "h1", userID: "user-1",
+            reader: stub, nudges: StubNudges()
         )
         await presenter.appeared()
 
@@ -295,8 +344,10 @@ struct BoxDetailPresenterTests {
         let presenter = BoxDetailPresenter(
             boxID: "b1",
             title: "Winter",
+            householdID: "h1",
             userID: "user-1",
-            reader: StubInventory(failure: .notFound)
+            reader: StubInventory(failure: .notFound),
+            nudges: StubNudges()
         )
         await presenter.appeared()
 
