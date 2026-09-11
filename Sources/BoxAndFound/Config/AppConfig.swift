@@ -22,6 +22,11 @@ enum AppConfig {
     /// failing a build that has not set it.
     static var storageBucket: String { string("StorageBucket") ?? "box-images" }
 
+    /// Where invite and box links point. Not a secret, and identical on every
+    /// client — a link built here has to open the same thing the web client
+    /// would open.
+    static var siteURL: String { string("SiteURL") ?? "https://boxandfound.net" }
+
     /// True when this build was given real credentials rather than the
     /// stand-ins CI writes for a pull request from a fork. Tests that need a
     /// live backend switch themselves off when it is false, so a fork can

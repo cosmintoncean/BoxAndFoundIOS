@@ -73,6 +73,7 @@ targets:
         SupabaseAnonKey: $(SUPABASE_ANON_KEY)
         PremiumEmails: $(PREMIUM_EMAILS)
         StorageBucket: $(STORAGE_BUCKET)
+        SiteURL: $(SITE_URL)
         CFBundleURLTypes:
           - CFBundleURLName: net.boxandfound.ios
             CFBundleURLSchemes: [net.boxandfound.ios]
