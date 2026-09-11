@@ -204,8 +204,10 @@ struct NotificationSettingsPresenterTests {
         await presenter.appeared()
 
         let toggles = presenter.viewState.toggles
-        #expect(toggles.map(\.id) == NotificationType.allCases.map(\.rawValue))
-        #expect(toggles.allSatisfy(\.isOn))
+        let ids = toggles.map(\.id)
+        let everyOneOn = toggles.allSatisfy(\.isOn)
+        #expect(ids == NotificationType.allCases.map(\.rawValue))
+        #expect(everyOneOn)
     }
 
     @Test("A type turned off elsewhere shows as off here")
@@ -215,7 +217,8 @@ struct NotificationSettingsPresenterTests {
         let presenter = NotificationSettingsPresenter(notifications: stub)
         await presenter.appeared()
 
-        #expect(presenter.viewState.toggles.first { $0.id == "nudge_request" }?.isOn == false)
+        let nudgeToggle = presenter.viewState.toggles.first { $0.id == "nudge_request" }
+        #expect(nudgeToggle?.isOn == false)
     }
 
     @Test("Toggling writes that one type and leaves the rest alone")
