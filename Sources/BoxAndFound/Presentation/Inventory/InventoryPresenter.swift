@@ -25,7 +25,7 @@ final class InventoryPresenter: Presenter {
 
     init(
         userID: String,
-        repository: any InventoryReading = InventoryRepository(),
+        repository: any InventoryReading = Dependencies.inventoryReading,
         activeHousehold: ActiveHouseholdStore = ActiveHouseholdStore(),
         signOut: @escaping @MainActor () async -> Void = {}
     ) {

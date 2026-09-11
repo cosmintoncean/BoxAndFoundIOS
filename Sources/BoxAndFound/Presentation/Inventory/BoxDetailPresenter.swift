@@ -26,8 +26,8 @@ final class BoxDetailPresenter: Presenter {
         boxID: String,
         title: String,
         userID: String,
-        reader: any InventoryReading = InventoryRepository(),
-        writer: any InventoryWriting = InventoryWriteRepository(),
+        reader: any InventoryReading = Dependencies.inventoryReading,
+        writer: any InventoryWriting = Dependencies.inventoryWriting,
         imageURLs: BoxImageURLs = BoxImageURLs()
     ) {
         self.boxID = boxID

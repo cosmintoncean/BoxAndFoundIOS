@@ -19,17 +19,30 @@ final class SessionStore {
     private let client: SupabaseClient
     private let allowlist: [String]
     private var watcher: Task<Void, Never>?
+    /// A fixed session never opens a stream, so nothing can move it.
+    private let isFixed: Bool
 
     init(client: SupabaseClient = SupabaseProvider.shared,
          allowlist: [String] = Premium.parseEmailList(AppConfig.premiumEmails)) {
         self.client = client
         self.allowlist = allowlist
+        self.isFixed = false
+    }
+
+    /// A session pinned to one state, for the UI test launch path. It still
+    /// holds a client so the rest of the type is unchanged, but never listens
+    /// to it — nothing a test does can sign this in or out.
+    init(fixed state: AuthState) {
+        self.client = SupabaseProvider.shared
+        self.allowlist = []
+        self.isFixed = true
+        self.state = state
     }
 
     /// Starts watching. Idempotent: calling it twice does not open a second
     /// stream, because SwiftUI may run `task` again after a scene change.
     func start() {
-        guard watcher == nil else { return }
+        guard !isFixed, watcher == nil else { return }
         watcher = Task { [weak self] in
             guard let self else { return }
             for await (_, session) in self.client.auth.authStateChanges {

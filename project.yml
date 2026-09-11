@@ -94,15 +94,32 @@ targets:
         TEST_HOST: $(BUILT_PRODUCTS_DIR)/BoxAndFound.app/BoxAndFound
         BUNDLE_LOADER: $(TEST_HOST)
 
+  BoxAndFoundUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - Tests/BoxAndFoundUITests
+    dependencies:
+      - target: BoxAndFound
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        # Names the app this runner drives. A UI test bundle launches the app
+        # as a separate process rather than loading into it, which is why it
+        # needs TEST_TARGET_NAME and not TEST_HOST.
+        TEST_TARGET_NAME: BoxAndFound
+
 schemes:
   BoxAndFound:
     build:
       targets:
         BoxAndFound: all
         BoxAndFoundTests: [test]
+        BoxAndFoundUITests: [test]
     test:
       config: Debug
       targets:
         - BoxAndFoundTests
+        - BoxAndFoundUITests
     run:
       config: Debug
