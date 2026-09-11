@@ -11,10 +11,11 @@ a decision — the entitlement shape, the error taxonomy, the palette, the
 `boxes.icon` contract — this one follows it rather than inventing a second
 answer.
 
-Status: **M3 — editing, green on CI.** Sign in with email, Apple, Google or
-Facebook; the box list with search and a household switcher; box detail;
-creating, editing and deleting boxes, taking and returning items, and photos.
-126 passing tests, five of which talk to the real project.
+Status: **M4 — households and invites, green on CI.** Sign in; the box list
+with search; box detail; creating, editing and deleting boxes; taking and
+returning items; photos; households, invite codes and joining. 172 unit tests
+in 23 suites, five of which talk to the real project, plus 7 UI tests that
+drive the real screens in a simulator.
 
 ---
 
@@ -34,21 +35,22 @@ inconvenience to work around later — it decides the layout:
 - **Nothing is verified until that workflow is green.** Treat any file here
   that predates a green run as a draft, however confident it looks.
 
-What this setup still cannot do: run the app. Compiling and passing unit tests
-says the types line up; it says nothing about whether a screen looks right or a
-gesture works. That needs a simulator on a Mac, or TestFlight on a device.
+CI does run the app, in a simulator, against fixtures — see Verified. What it
+still cannot do is tell you how anything *looks*. A green suite says the types
+line up, the logic holds and the screens are reachable; it says nothing about
+layout, spacing, or whether a gesture feels right. That needs a simulator on a
+Mac, or TestFlight on a device.
 
 ### What CI costs
 
-macOS runners bill at **10x the minute rate** of Linux. A private repo on the
-GitHub Free plan gets 2,000 included minutes a month, which is **200 macOS
-minutes** — roughly 25-40 runs of this workflow. Two consequences worth
-respecting:
+macOS runners bill at **10x the minute rate** of Linux, so on a private repo
+this workflow would eat a Free plan's monthly allowance in about thirty runs.
+**This repo is public, so standard-runner minutes are free** and that ceiling
+does not apply.
 
-- Push a milestone, not a file. Batching work into one run is the difference
-  between a month of loop and a week of it.
-- If the repo is public, macOS minutes on standard runners are free, and none
-  of the above applies.
+What is not free is wall-clock time. A run is about nine minutes now that the
+UI tests boot a simulator, so it is still worth pushing a milestone rather
+than a file — the cost is the wait, not the bill.
 
 ## Requirements
 
@@ -88,8 +90,16 @@ On a Mac, `brew install xcodegen && xcodegen generate && open BoxAndFound.xcodep
 
 ## Verified
 
-**Green on CI as of run 34483042055:** 126 tests in 18 suites, both targets
-compiling under Xcode 26 in Swift 6 language mode.
+**Green on CI as of run 34638453156:** 172 unit tests in 23 suites and 7 UI
+tests, all three targets compiling under Xcode 26 in Swift 6 language mode.
+
+**A simulator drives the real screens.** `BoxAndFoundUITests` launches the app
+with `-uiTestFixtures`, which swaps the repositories for in-memory ones and a
+session that is already signed in. Writes land in those fixtures, so the suite
+can do what no presenter test can: tap into a box, take an item, come back,
+and check the list now says "1 taken". It catches a view tree that will not
+render, a navigation destination that never fires, and a button disabled when
+it should not be. It says nothing about how anything *looks*.
 
 **Against the live project.** Five of those tests talk to the real Supabase
 project rather than a fixture, and they are the ones worth the wall-clock time:
@@ -207,6 +217,20 @@ lets tests pass their own without a container.
 **Raw hex, not a colour asset catalogue.** A catalogue would be a fourth place
 the palette lives and could not be diffed against the CSS in a test.
 
+### What M4 cannot finish yet
+
+**Universal Links need an Apple Team ID.** The
+`apple-app-site-association` file on `boxandfound.net` has to name
+`TEAMID.net.boxandfound.ios`, and there is no Team ID without enrolling in the
+Apple Developer Program. Until then, tapping an invite link opens Safari
+rather than the app. Everything behind the link is built and tested — parsing,
+parking it across a cold start, the preview and the join — so this is a file
+and a config value away, not a feature away. The typed-code path does not
+depend on any of it, which is why the join flow is built around the code.
+
+**Two things exist without a screen.** `rename` and `members` are implemented
+in `HouseholdRepository` and reachable, but nothing calls them yet.
+
 ### What M3 deliberately does not do
 
 **No offline queue.** A write that fails says so and leaves the screen open
@@ -253,8 +277,8 @@ Numbered to match the Android client, so "M3" means the same thing in both.
 | M1 | Sign in — email/password, Apple, Google, Facebook | **done**, never run against a live server |
 | M2 | Read the inventory — households, rooms, boxes, items, search | **done** |
 | M3 | Edit — box/room CRUD, items, taken/returned, photo upload | **done**, bar creating a room from the editor |
-| M4 | Households and invites — Universal Links on `boxandfound.net` | next |
-| M5 | Notifications and nudges — APNs, realtime feed, 24h cooldown | |
+| M4 | Households and invites — Universal Links on `boxandfound.net` | **done**, bar Universal Links (see below) |
+| M5 | Notifications and nudges — APNs, realtime feed, 24h cooldown | next |
 | M6 | Premium — StoreKit 2, verification, gates | |
 | M7 | Room map, view-only — Canvas over the saved JSON | |
 | M8 | Account lifecycle and release — deletion modes, offline cache, App Store listing | |
