@@ -107,7 +107,9 @@ struct NotificationRepository: NotificationsReading {
     func changes() -> AsyncStream<Void> {
         AsyncStream { continuation in
             let task = Task {
-                let channel = client.realtime.channel("notifications-feed")
+                // `client.realtime` is still the v1 client; `client.channel`
+                // is the v2 one, and only v2 speaks postgres changes.
+                let channel = client.channel("notifications-feed")
                 let inserts = channel.postgresChange(InsertAction.self, table: "notifications")
                 await channel.subscribe()
                 for await _ in inserts {
