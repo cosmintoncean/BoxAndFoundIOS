@@ -15,29 +15,39 @@ import Foundation
 @MainActor
 enum Dependencies {
 
-    private static var overrides: (
-        reading: any InventoryReading,
-        writing: any InventoryWriting,
-        households: any HouseholdManaging
-    )?
+    /// A struct rather than a growing tuple: every milestone adds a
+    /// collaborator, and positional arguments stop being readable at three.
+    struct Overrides {
+        var inventoryReading: any InventoryReading
+        var inventoryWriting: any InventoryWriting
+        var households: any HouseholdManaging
+        var notifications: any NotificationsReading
+        var nudges: any NudgeManaging
+    }
+
+    private static var overrides: Overrides?
 
     static var inventoryReading: any InventoryReading {
-        overrides?.reading ?? InventoryRepository()
+        overrides?.inventoryReading ?? InventoryRepository()
     }
 
     static var inventoryWriting: any InventoryWriting {
-        overrides?.writing ?? InventoryWriteRepository()
+        overrides?.inventoryWriting ?? InventoryWriteRepository()
     }
 
     static var householdManaging: any HouseholdManaging {
         overrides?.households ?? HouseholdRepository()
     }
 
-    static func use(
-        reading: any InventoryReading,
-        writing: any InventoryWriting,
-        households: any HouseholdManaging
-    ) {
-        overrides = (reading, writing, households)
+    static var notifications: any NotificationsReading {
+        overrides?.notifications ?? NotificationRepository()
+    }
+
+    static var nudges: any NudgeManaging {
+        overrides?.nudges ?? NudgeRepository()
+    }
+
+    static func use(_ replacements: Overrides) {
+        overrides = replacements
     }
 }

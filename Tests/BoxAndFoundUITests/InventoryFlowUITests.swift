@@ -160,3 +160,70 @@ final class InventoryFlowUITests: XCTestCase {
         XCTAssertFalse(app.buttons["Create box"].isEnabled)
     }
 }
+
+/// The notification feed, driven the way a person would reach it.
+final class NotificationsFlowUITests: XCTestCase {
+
+    override func setUp() {
+        super.setUp()
+        continueAfterFailure = false
+    }
+
+    private func launch() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments += ["-uiTestFixtures"]
+        app.launch()
+        return app
+    }
+
+    private func openNotifications(_ app: XCUIApplication) {
+        XCTAssertTrue(
+            app.staticTexts["Winter Clothes"].waitForExistence(timeout: 30),
+            "The box list never appeared"
+        )
+        app.buttons["More"].tap()
+        app.buttons["Notifications"].tap()
+    }
+
+    func testFeedListsWhatIsThere() {
+        let app = launch()
+        openNotifications(app)
+
+        XCTAssertTrue(
+            app.staticTexts["Cosmin wants the Scarf back"].waitForExistence(timeout: 30),
+            "The feed never appeared"
+        )
+        XCTAssertTrue(app.staticTexts["Sam joined Home"].exists)
+    }
+
+    /// One unread row in the fixtures, so the button is live on arrival and
+    /// dead afterwards — which is the whole behaviour.
+    func testMarkAllReadTurnsItselfOff() {
+        let app = launch()
+        openNotifications(app)
+
+        let markAll = app.buttons["Mark all read"]
+        XCTAssertTrue(markAll.waitForExistence(timeout: 30), "No mark-all button")
+        XCTAssertTrue(markAll.isEnabled)
+
+        markAll.tap()
+
+        let wentQuiet = NSPredicate(format: "isEnabled == false")
+        expectation(for: wentQuiet, evaluatedWith: markAll)
+        waitForExpectations(timeout: 30)
+    }
+
+    func testSettingsListsEveryType() {
+        let app = launch()
+        openNotifications(app)
+
+        app.buttons["Notification settings"].tap()
+
+        XCTAssertTrue(
+            app.staticTexts["Someone asks for an item back"].waitForExistence(timeout: 30),
+            "The settings screen never pushed"
+        )
+        XCTAssertTrue(app.staticTexts["Someone joins a household"].exists)
+        XCTAssertTrue(app.staticTexts["Premium is about to expire"].exists)
+    }
+}

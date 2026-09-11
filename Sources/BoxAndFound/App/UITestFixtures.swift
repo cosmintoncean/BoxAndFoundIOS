@@ -31,7 +31,16 @@ enum UITestFixtures {
     @MainActor
     static func install() -> SessionStore {
         let inventory = FixtureInventory()
-        Dependencies.use(reading: inventory, writing: inventory, households: inventory)
+        let notifications = FixtureNotifications()
+        Dependencies.use(
+            Dependencies.Overrides(
+                inventoryReading: inventory,
+                inventoryWriting: inventory,
+                households: inventory,
+                notifications: notifications,
+                nudges: notifications
+            )
+        )
         return SessionStore(
             fixed: .signedIn(
                 SignedInUser(id: userID, email: "tester@boxandfound.net", isPremium: false)

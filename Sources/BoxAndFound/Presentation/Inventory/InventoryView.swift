@@ -19,6 +19,7 @@ struct InventoryView: View {
         /// Carries the invite code when the app was opened by a link, so the
         /// households screen can look it up without being asked twice.
         case households(inviteCode: String?)
+        case notifications
     }
 
     init(
@@ -91,6 +92,9 @@ struct InventoryView: View {
         }
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
+                Button("Notifications") {
+                    path.append(.notifications)
+                }
                 Button("Households") {
                     path.append(.households(inviteCode: nil))
                 }
@@ -118,6 +122,8 @@ struct InventoryView: View {
             BoxEditorView(householdID: householdID ?? "", userID: userID)
         case .households(let inviteCode):
             HouseholdsView(userID: userID, pendingInviteCode: inviteCode)
+        case .notifications:
+            NotificationsView()
         }
     }
 
