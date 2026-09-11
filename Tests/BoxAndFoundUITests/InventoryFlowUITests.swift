@@ -208,9 +208,14 @@ final class NotificationsFlowUITests: XCTestCase {
 
         markAll.tap()
 
-        let wentQuiet = NSPredicate(format: "isEnabled == false")
-        expectation(for: wentQuiet, evaluatedWith: markAll)
-        waitForExpectations(timeout: 30)
+        // Polled rather than waited on with an NSPredicate expectation: that
+        // API captures the test case itself, which Swift 6 rejects as a
+        // non-Sendable value crossing an isolation boundary.
+        let deadline = Date().addingTimeInterval(30)
+        while markAll.isEnabled && Date() < deadline {
+            usleep(200_000)
+        }
+        XCTAssertFalse(markAll.isEnabled, "Mark all read stayed live with nothing left unread")
     }
 
     func testSettingsListsEveryType() {
