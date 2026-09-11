@@ -18,6 +18,12 @@ final class RootPresenter: Presenter {
     /// for the instant between the two.
     private var isResettingPassword = false
 
+    /// An invite the app was opened with, parked until there is a screen able
+    /// to act on it. A link can arrive before there is anywhere to send it: on
+    /// a cold start the session is still being restored, and an invite tapped
+    /// while signed out has to wait for sign-in.
+    private var pendingInviteCode: String?
+
     init(session: SessionStore = SessionStore(), repository: AuthRepository = AuthRepository()) {
         self.session = session
         self.repository = repository
@@ -33,7 +39,7 @@ final class RootPresenter: Presenter {
         case .signedOut:
             RootViewState(content: .signedOut)
         case .signedIn(let user):
-            RootViewState(content: .signedIn(userID: user.id))
+            RootViewState(content: .signedIn(userID: user.id, pendingInviteCode: pendingInviteCode))
         }
     }
 
@@ -47,6 +53,12 @@ final class RootPresenter: Presenter {
     /// straight back to the SDK inside the call that started it. A reset link
     /// is opened by Mail instead, so this is the only place it can be caught.
     func opened(_ url: URL) async {
+        // An invite is not a recovery link and carries no session, so it is
+        // parked rather than redeemed.
+        if case .invite(let code, _) = InviteLink.parse(url.absoluteString) {
+            pendingInviteCode = code
+            return
+        }
         guard RecoveryLink.isRecovery(url) else { return }
         isResettingPassword = true
         // A spent or expired link leaves no session. The reset screen still
@@ -57,6 +69,12 @@ final class RootPresenter: Presenter {
 
     /// The new password is set, or they backed out. Either way this screen is
     /// done and the session decides again.
+    /// Acted on exactly once: without this, coming back to the box list
+    /// would re-open the invite it had just dealt with.
+    func inviteConsumed() {
+        pendingInviteCode = nil
+    }
+
     func passwordResetFinished() {
         isResettingPassword = false
     }

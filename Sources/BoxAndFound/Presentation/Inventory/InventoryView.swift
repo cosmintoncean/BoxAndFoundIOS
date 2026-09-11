@@ -10,14 +10,26 @@ struct InventoryView: View {
     @State private var path: [Route] = []
 
     private let userID: String
+    private let pendingInviteCode: String?
+    private let onInviteConsumed: @MainActor () -> Void
 
     private enum Route: Hashable {
         case box(InventoryViewState.BoxRow)
         case newBox
+        /// Carries the invite code when the app was opened by a link, so the
+        /// households screen can look it up without being asked twice.
+        case households(inviteCode: String?)
     }
 
-    init(userID: String, signOut: @escaping @MainActor () async -> Void) {
+    init(
+        userID: String,
+        pendingInviteCode: String? = nil,
+        onInviteConsumed: @escaping @MainActor () -> Void = {},
+        signOut: @escaping @MainActor () async -> Void
+    ) {
         self.userID = userID
+        self.pendingInviteCode = pendingInviteCode
+        self.onInviteConsumed = onInviteConsumed
         _presenter = State(initialValue: InventoryPresenter(userID: userID, signOut: signOut))
     }
 
@@ -43,7 +55,15 @@ struct InventoryView: View {
                 .refreshable { await presenter.refresh() }
         }
         .tint(.bfAccent)
-        .task { await presenter.appeared() }
+        .task {
+            await presenter.appeared()
+            // An invite is why the app was opened, so it goes in front of the
+            // box list rather than waiting to be found.
+            if let code = pendingInviteCode {
+                onInviteConsumed()
+                path.append(.households(inviteCode: code))
+            }
+        }
         .onChange(of: path) { previous, current in
             // Back at the list. Whatever the pushed screen wrote — a taken
             // item, a renamed box, a deleted one — the counts here are stale.
@@ -71,6 +91,9 @@ struct InventoryView: View {
         }
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
+                Button("Households") {
+                    path.append(.households(inviteCode: nil))
+                }
                 Button("Sign out", role: .destructive) {
                     Task { await presenter.signOutTapped() }
                 }
@@ -93,6 +116,8 @@ struct InventoryView: View {
             )
         case .newBox:
             BoxEditorView(householdID: householdID ?? "", userID: userID)
+        case .households(let inviteCode):
+            HouseholdsView(userID: userID, pendingInviteCode: inviteCode)
         }
     }
 

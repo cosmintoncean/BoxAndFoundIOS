@@ -31,7 +31,7 @@ enum UITestFixtures {
     @MainActor
     static func install() -> SessionStore {
         let inventory = FixtureInventory()
-        Dependencies.use(reading: inventory, writing: inventory)
+        Dependencies.use(reading: inventory, writing: inventory, households: inventory)
         return SessionStore(
             fixed: .signedIn(
                 SignedInUser(id: userID, email: "tester@boxandfound.net", isPremium: false)
@@ -49,7 +49,7 @@ enum UITestFixtures {
 /// `@unchecked Sendable` because `InventoryReading` and `InventoryWriting` are
 /// `Sendable` and this holds plain mutable state. Every caller is a main-actor
 /// presenter, so the state is only ever touched from one actor.
-final class FixtureInventory: InventoryReading, InventoryWriting, @unchecked Sendable {
+final class FixtureInventory: InventoryReading, InventoryWriting, HouseholdManaging, @unchecked Sendable {
 
     static let householdID = "fixture-household"
 
@@ -262,6 +262,67 @@ final class FixtureInventory: InventoryReading, InventoryWriting, @unchecked Sen
         fileExtension: String
     ) async throws(InventoryFailure) -> String {
         "\(householdID)/fixture.\(fileExtension)"
+    }
+
+    // MARK: - Households
+
+    func create(name: String, ownerID: String) async throws(HouseholdFailure) -> Household {
+        let household = Household(
+            id: makeID("household"),
+            name: name,
+            inviteCode: InviteCode.random(),
+            ownerID: ownerID
+        )
+        households.append(household)
+        return household
+    }
+
+    func rename(householdID: String, name: String) async throws(HouseholdFailure) {
+        guard let index = households.firstIndex(where: { $0.id == householdID }) else { return }
+        let old = households[index]
+        households[index] = Household(
+            id: old.id, name: name, inviteCode: old.inviteCode, ownerID: old.ownerID
+        )
+    }
+
+    func regenerateInviteCode(householdID: String) async throws(HouseholdFailure) -> String {
+        let code = InviteCode.random()
+        guard let index = households.firstIndex(where: { $0.id == householdID }) else { return code }
+        let old = households[index]
+        households[index] = Household(
+            id: old.id, name: old.name, inviteCode: code, ownerID: old.ownerID
+        )
+        return code
+    }
+
+    func previewInvite(code: String) async throws(HouseholdFailure) -> InvitePreview {
+        let wanted = InviteCode.normalise(code)
+        guard let match = households.first(where: { $0.inviteCode == wanted }) else {
+            throw HouseholdFailure.unknownInviteCode
+        }
+        return InvitePreview(
+            householdID: match.id,
+            householdName: match.name,
+            ownerName: "Fixture Owner",
+            memberCount: 2,
+            isAlreadyMember: match.ownerID == UITestFixtures.userID
+        )
+    }
+
+    func join(householdID: String, userID: String) async throws(HouseholdFailure) {}
+
+    func leave(householdID: String, userID: String) async throws(HouseholdFailure) {
+        households.removeAll { $0.id == householdID }
+    }
+
+    func members(householdID: String) async throws(HouseholdFailure) -> [HouseholdMember] {
+        [HouseholdMember(userID: UITestFixtures.userID, displayName: "Tester", email: nil)]
+    }
+
+    func delete(householdID: String) async throws(HouseholdFailure) {
+        households.removeAll { $0.id == householdID }
+        rooms.removeAll { $0.householdID == householdID }
+        boxes.removeAll { $0.householdID == householdID }
     }
 
     // MARK: -

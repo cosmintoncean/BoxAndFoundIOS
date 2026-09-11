@@ -15,7 +15,11 @@ import Foundation
 @MainActor
 enum Dependencies {
 
-    private static var overrides: (reading: any InventoryReading, writing: any InventoryWriting)?
+    private static var overrides: (
+        reading: any InventoryReading,
+        writing: any InventoryWriting,
+        households: any HouseholdManaging
+    )?
 
     static var inventoryReading: any InventoryReading {
         overrides?.reading ?? InventoryRepository()
@@ -25,7 +29,15 @@ enum Dependencies {
         overrides?.writing ?? InventoryWriteRepository()
     }
 
-    static func use(reading: any InventoryReading, writing: any InventoryWriting) {
-        overrides = (reading, writing)
+    static var householdManaging: any HouseholdManaging {
+        overrides?.households ?? HouseholdRepository()
+    }
+
+    static func use(
+        reading: any InventoryReading,
+        writing: any InventoryWriting,
+        households: any HouseholdManaging
+    ) {
+        overrides = (reading, writing, households)
     }
 }

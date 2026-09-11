@@ -21,10 +21,13 @@ struct RootView: View {
             AuthView()
         case .passwordReset:
             PasswordResetView { presenter.passwordResetFinished() }
-        case .signedIn(let userID):
-            InventoryView(userID: userID) {
-                await presenter.signOutTapped()
-            }
+        case .signedIn(let userID, let pendingInviteCode):
+            InventoryView(
+                userID: userID,
+                pendingInviteCode: pendingInviteCode,
+                onInviteConsumed: { presenter.inviteConsumed() },
+                signOut: { await presenter.signOutTapped() }
+            )
         }
     }
 }
