@@ -49,12 +49,12 @@ final class FixtureInventory: InventoryReading, InventoryWriting, @unchecked Sen
     static let householdID = "fixture-household"
 
     private var households: [Household] = [
-        Household(id: Self.householdID, name: "Home", inviteCode: "ABC123", ownerID: UITestFixtures.userID),
+        Household(id: FixtureInventory.householdID, name: "Home", inviteCode: "ABC123", ownerID: UITestFixtures.userID),
     ]
 
     private var rooms: [Room] = [
-        Room(id: "room-garage", name: "Garage", householdID: Self.householdID),
-        Room(id: "room-attic", name: "Attic", householdID: Self.householdID),
+        Room(id: "room-garage", name: "Garage", householdID: FixtureInventory.householdID),
+        Room(id: "room-attic", name: "Attic", householdID: FixtureInventory.householdID),
     ]
 
     private var boxes: [Box] = [
@@ -64,7 +64,7 @@ final class FixtureInventory: InventoryReading, InventoryWriting, @unchecked Sen
             location: "Top shelf",
             icon: "suitcase",
             roomID: "room-attic",
-            householdID: Self.householdID,
+            householdID: FixtureInventory.householdID,
             items: [
                 BoxItem(id: "item-scarf", name: "Scarf", quantity: 1, position: 0),
                 BoxItem(id: "item-gloves", name: "Gloves", quantity: 2, position: 1),
@@ -76,14 +76,14 @@ final class FixtureInventory: InventoryReading, InventoryWriting, @unchecked Sen
             location: "Bench",
             icon: "box",
             roomID: "room-garage",
-            householdID: Self.householdID,
+            householdID: FixtureInventory.householdID,
             items: [BoxItem(id: "item-hammer", name: "Hammer", quantity: 1, position: 0)]
         ),
         Box(
             id: "box-spare",
             name: "Spare Box",
             icon: "cardbox",
-            householdID: Self.householdID
+            householdID: FixtureInventory.householdID
         ),
     ]
 
@@ -114,7 +114,7 @@ final class FixtureInventory: InventoryReading, InventoryWriting, @unchecked Sen
     // MARK: - Writing
 
     func createRoom(householdID: String, name: String) async throws(InventoryFailure) -> Room {
-        let room = Room(id: makeID("room"), name: name, householdID: Self.householdID)
+        let room = Room(id: makeID("room"), name: name, householdID: FixtureInventory.householdID)
         rooms.append(room)
         return room
     }
@@ -138,7 +138,7 @@ final class FixtureInventory: InventoryReading, InventoryWriting, @unchecked Sen
             location: location,
             icon: icon,
             roomID: roomID,
-            householdID: Self.householdID
+            householdID: FixtureInventory.householdID
         )
         boxes.append(box)
         return box
