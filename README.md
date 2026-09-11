@@ -11,11 +11,16 @@ a decision — the entitlement shape, the error taxonomy, the palette, the
 `boxes.icon` contract — this one follows it rather than inventing a second
 answer.
 
-Status: **M4 — households and invites, green on CI.** Sign in; the box list
+Status: **M5 — notifications and nudges, green on CI.** Sign in; the box list
 with search; box detail; creating, editing and deleting boxes; taking and
-returning items; photos; households, invite codes and joining. 172 unit tests
-in 23 suites, five of which talk to the real project, plus 7 UI tests that
-drive the real screens in a simulator.
+returning items; photos; households, invite codes and joining; the
+notification feed, its per-type preferences, and asking someone for an item
+back. 203 unit tests in 28 suites, five of which talk to the real project,
+plus 10 UI tests that drive the real screens in a simulator.
+
+Push notifications are the one part of M5 that is not here: they need an APNs
+key and the `aps-environment` entitlement, and neither exists without the
+Apple Developer Program. See below.
 
 ---
 
@@ -90,7 +95,7 @@ On a Mac, `brew install xcodegen && xcodegen generate && open BoxAndFound.xcodep
 
 ## Verified
 
-**Green on CI as of run 34638453156:** 172 unit tests in 23 suites and 7 UI
+**Green on CI as of run 34643369913:** 203 unit tests in 28 suites and 10 UI
 tests, all three targets compiling under Xcode 26 in Swift 6 language mode.
 
 **A simulator drives the real screens.** `BoxAndFoundUITests` launches the app
@@ -217,6 +222,34 @@ lets tests pass their own without a container.
 **Raw hex, not a colour asset catalogue.** A catalogue would be a fourth place
 the palette lives and could not be diffed against the CSS in a test.
 
+### What M5 cannot finish yet, and what it turned out not to need
+
+**Push registration needs an Apple Developer Program membership.** The
+`aps-environment` entitlement comes from a provisioning profile with push
+enabled, and Firebase needs an APNs auth key from the developer portal.
+Nothing in this milestone registers a token, because an unverifiable
+registration path is exactly the kind of thing that silently does not work.
+
+**It does not need a new APNs delivery path, though, and the README used to
+say it did.** Reading the web client's FCM work showed why: FCM routes by
+token and relays to APNs itself, so an iOS token goes down the pipe
+`send-push.js` already has. Two small changes on the server finish it:
+
+- `push_subscriptions_platform_shape` allows only `web` and `android`, so an
+  `ios` row is rejected by the check constraint.
+- `send-push.js` branches on `platform === 'android'`, so an iOS row would
+  fall into the *web* branch and call `webpush.sendNotification` with a null
+  endpoint. Branching on whether the row has a token covers both without a
+  third case.
+
+The partial-index and `ON CONFLICT` trap that broke Android registration —
+written up in `MIGRATION_fix_push_token_conflict.sql` — would have bitten the
+iOS upsert identically. It is already fixed, so iOS inherits the fix.
+
+**What is here works without any of that.** The feed arrives over Realtime,
+preferences are read and written, and nudges go out with the cooldown
+enforced server-side.
+
 ### What M4 cannot finish yet
 
 **Universal Links need an Apple Team ID.** The
@@ -252,10 +285,14 @@ already exist, so a first room still has to be made on the web or on Android.
 
 None of it is Swift, and the app cannot ship without it:
 
-1. **An APNs delivery path.** `send-push.js` uses `web-push` against VAPID
-   endpoints and `push_subscriptions` stores `endpoint`/`p256dh`/`auth`, a
-   shape APNs has no use for. This is the same hole the Android port opened for
-   FCM — worth solving once, for both.
+1. **Two lines of push plumbing, not an APNs delivery path.** This entry used
+   to claim the latter. The web client has since grown a working FCM HTTP v1
+   path for Android, and FCM routes by token and relays to APNs itself, so an
+   iOS token uses the pipe that already exists. What is left is letting an
+   `ios` row through `push_subscriptions_platform_shape`, and making
+   `send-push.js` branch on whether a row has a token rather than on
+   `platform === 'android'` — today an iOS row would fall into the web branch
+   and be sent to a null endpoint.
 2. **StoreKit purchase verification.** An endpoint that verifies an App Store
    transaction and writes the same three `user_metadata` fields
    `lemon-webhook.js` writes today. Apple is stricter than Google here: the
@@ -278,8 +315,8 @@ Numbered to match the Android client, so "M3" means the same thing in both.
 | M2 | Read the inventory — households, rooms, boxes, items, search | **done** |
 | M3 | Edit — box/room CRUD, items, taken/returned, photo upload | **done**, bar creating a room from the editor |
 | M4 | Households and invites — Universal Links on `boxandfound.net` | **done**, bar Universal Links (see below) |
-| M5 | Notifications and nudges — APNs, realtime feed, 24h cooldown | next |
-| M6 | Premium — StoreKit 2, verification, gates | |
+| M5 | Notifications and nudges — APNs, realtime feed, 24h cooldown | **done**, bar push registration (see below) |
+| M6 | Premium — StoreKit 2, verification, gates | next |
 | M7 | Room map, view-only — Canvas over the saved JSON | |
 | M8 | Account lifecycle and release — deletion modes, offline cache, App Store listing | |
 
