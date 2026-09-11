@@ -24,6 +24,11 @@ enum UITestFixtures {
 
     /// Swaps the repositories and hands back a session that is already signed
     /// in, so the test starts on the inventory rather than the sign-in form.
+    ///
+    /// Main-actor isolated because everything it touches is: the composition
+    /// root and the session store both belong to the actor the UI runs on, and
+    /// its only caller is `RootPresenter.forLaunch()`.
+    @MainActor
     static func install() -> SessionStore {
         let inventory = FixtureInventory()
         Dependencies.use(reading: inventory, writing: inventory)
