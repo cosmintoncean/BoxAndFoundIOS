@@ -109,7 +109,7 @@ struct MapProjectionTests {
 
     @Test("Doors keep the angle the web stored")
     func doorAngle() {
-        let layout = RoomLayout(doors: [MapDoor(x: 0, y: 0, angle: 90)], walls: room.walls)
+        let layout = RoomLayout(walls: room.walls, doors: [MapDoor(x: 0, y: 0, angle: 90)])
         #expect(drawing(layout)?.doors.first?.angle == 90)
     }
 
