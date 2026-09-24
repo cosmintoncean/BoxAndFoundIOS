@@ -232,3 +232,53 @@ final class NotificationsFlowUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Premium is about to expire"].exists)
     }
 }
+
+/// The room map, reached the way a person reaches it.
+final class RoomMapFlowUITests: XCTestCase {
+
+    override func setUp() {
+        super.setUp()
+        continueAfterFailure = false
+    }
+
+    private func launch() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments += ["-uiTestFixtures"]
+        app.launch()
+        return app
+    }
+
+    func testOpeningAMappedRoomDrawsIt() {
+        let app = launch()
+        XCTAssertTrue(
+            app.staticTexts["Winter Clothes"].waitForExistence(timeout: 30),
+            "The box list never appeared"
+        )
+
+        app.buttons["Map of Attic"].tap()
+
+        // The token label is the proof the layout parsed and projected: it is
+        // drawn from the saved map, not from the box list.
+        XCTAssertTrue(
+            app.staticTexts["4.0 m × 3.0 m"].waitForExistence(timeout: 30),
+            "The map never drew"
+        )
+    }
+
+    /// Most rooms are never drawn, so the empty state is the common case and
+    /// has to say where maps come from.
+    func testAnUnmappedRoomSaysSo() {
+        let app = launch()
+        XCTAssertTrue(
+            app.staticTexts["Winter Clothes"].waitForExistence(timeout: 30),
+            "The box list never appeared"
+        )
+
+        app.buttons["Map of Garage"].tap()
+
+        let empty = app.staticTexts.containing(
+            NSPredicate(format: "label CONTAINS[c] 'has not been mapped'")
+        ).firstMatch
+        XCTAssertTrue(empty.waitForExistence(timeout: 30), "No empty state for an unmapped room")
+    }
+}

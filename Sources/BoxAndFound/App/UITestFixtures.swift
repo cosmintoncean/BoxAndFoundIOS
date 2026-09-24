@@ -38,7 +38,8 @@ enum UITestFixtures {
                 inventoryWriting: inventory,
                 households: inventory,
                 notifications: notifications,
-                nudges: notifications
+                nudges: notifications,
+                roomLayouts: inventory
             )
         )
         return SessionStore(
@@ -58,7 +59,8 @@ enum UITestFixtures {
 /// `@unchecked Sendable` because `InventoryReading` and `InventoryWriting` are
 /// `Sendable` and this holds plain mutable state. Every caller is a main-actor
 /// presenter, so the state is only ever touched from one actor.
-final class FixtureInventory: InventoryReading, InventoryWriting, HouseholdManaging, @unchecked Sendable {
+final class FixtureInventory:
+    InventoryReading, InventoryWriting, HouseholdManaging, RoomLayoutReading, @unchecked Sendable {
 
     static let householdID = "fixture-household"
 
@@ -271,6 +273,30 @@ final class FixtureInventory: InventoryReading, InventoryWriting, HouseholdManag
         fileExtension: String
     ) async throws(InventoryFailure) -> String {
         "\(householdID)/fixture.\(fileExtension)"
+    }
+
+    // MARK: - Maps
+
+    /// One mapped room, so the map screen has something to draw, and one that
+    /// is not, so its empty state is reachable too.
+    func layout(roomID: String) async throws(InventoryFailure) -> RoomLayout? {
+        guard roomID == "room-attic" else { return nil }
+        return RoomLayout(
+            boxes: ["box-winter": BoxToken(x: 420, y: 280)],
+            walls: [
+                MapWall(x1: 0, y1: 0, x2: 1120, y2: 0),
+                MapWall(x1: 1120, y1: 0, x2: 1120, y2: 840),
+                MapWall(x1: 1120, y1: 840, x2: 0, y2: 840),
+                MapWall(x1: 0, y1: 840, x2: 0, y2: 0),
+            ],
+            doors: [MapDoor(x: 560, y: 840, angle: 0)],
+            floors: [[
+                MapPoint(x: 0, y: 0),
+                MapPoint(x: 1120, y: 0),
+                MapPoint(x: 1120, y: 840),
+                MapPoint(x: 0, y: 840),
+            ]]
+        )
     }
 
     // MARK: - Households

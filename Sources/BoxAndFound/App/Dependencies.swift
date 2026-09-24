@@ -23,6 +23,7 @@ enum Dependencies {
         var households: any HouseholdManaging
         var notifications: any NotificationsReading
         var nudges: any NudgeManaging
+        var roomLayouts: any RoomLayoutReading
     }
 
     private static var overrides: Overrides?
@@ -45,6 +46,10 @@ enum Dependencies {
 
     static var nudges: any NudgeManaging {
         overrides?.nudges ?? NudgeRepository()
+    }
+
+    static var roomLayouts: any RoomLayoutReading {
+        overrides?.roomLayouts ?? RoomLayoutRepository()
     }
 
     static func use(_ replacements: Overrides) {

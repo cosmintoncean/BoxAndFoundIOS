@@ -71,6 +71,7 @@ final class InventoryPresenter: Presenter {
                     // The unassigned group has no room, so no id of its own.
                     id: group.room?.id ?? "unassigned",
                     title: InventoryCopy.roomName(group.room?.name),
+                    roomID: group.room?.id,
                     boxes: group.matches.map { row(for: $0, isSearching: isSearching) }
                 )
             }

@@ -32,6 +32,8 @@ struct InventoryViewState: Equatable {
     struct RoomSection: Equatable, Identifiable {
         let id: String
         let title: String
+        /// Nil for the unassigned group: it is not a room, so it has no map.
+        let roomID: String?
         let boxes: [BoxRow]
     }
 

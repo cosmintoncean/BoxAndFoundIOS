@@ -20,6 +20,7 @@ struct InventoryView: View {
         /// households screen can look it up without being asked twice.
         case households(inviteCode: String?)
         case notifications
+        case map(roomID: String, roomName: String)
     }
 
     init(
@@ -124,6 +125,13 @@ struct InventoryView: View {
             HouseholdsView(userID: userID, pendingInviteCode: inviteCode)
         case .notifications:
             NotificationsView()
+        case .map(let roomID, let roomName):
+            RoomMapView(
+                roomID: roomID,
+                roomName: roomName,
+                householdID: householdID ?? "",
+                userID: userID
+            )
         }
     }
 
@@ -166,9 +174,21 @@ struct InventoryView: View {
                             .listRowBackground(Color.bfSurface)
                         }
                     } header: {
-                        Text(section.title)
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(Color.bfTextMuted)
+                        HStack {
+                            Text(section.title)
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(Color.bfTextMuted)
+                            Spacer(minLength: 0)
+                            if let roomID = section.roomID {
+                                Button {
+                                    path.append(.map(roomID: roomID, roomName: section.title))
+                                } label: {
+                                    Image(systemName: "map")
+                                        .font(.footnote)
+                                }
+                                .accessibilityLabel("Map of \(section.title)")
+                            }
+                        }
                     }
                 }
             }
