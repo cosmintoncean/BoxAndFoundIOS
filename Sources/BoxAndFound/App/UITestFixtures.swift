@@ -84,7 +84,11 @@ final class FixtureInventory:
             items: [
                 BoxItem(id: "item-scarf", name: "Scarf", quantity: 1, position: 0),
                 BoxItem(id: "item-gloves", name: "Gloves", quantity: 2, position: 1),
-            ]
+            ],
+            // Inside the wardrobe below. The box list shows it under the Attic
+            // either way: every place carries the room it ultimately sits in,
+            // however deep that is.
+            parentID: "container-wardrobe"
         ),
         Box(
             id: "box-tools",
@@ -100,6 +104,26 @@ final class FixtureInventory:
             name: "Spare Box",
             icon: "cardbox",
             householdID: FixtureInventory.householdID
+        ),
+        // Storage nests, so the fixtures have to: a wardrobe in the attic,
+        // with a box inside it and a coat loose on its rail.
+        Box(
+            id: "container-wardrobe",
+            name: "Wardrobe",
+            roomID: "room-attic",
+            householdID: FixtureInventory.householdID,
+            items: [BoxItem(id: "item-coat", name: "Winter coat", position: 0)],
+            type: "wardrobe"
+        ),
+        // A room cannot hold items itself, so one hidden place holds them for
+        // it. It is never shown as a thing you can open.
+        Box(
+            id: "holder-attic",
+            name: "Attic",
+            roomID: "room-attic",
+            householdID: FixtureInventory.householdID,
+            items: [BoxItem(id: "item-stepladder", name: "Stepladder", position: 0)],
+            type: Places.typeRoomItems
         ),
     ]
 

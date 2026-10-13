@@ -21,6 +21,9 @@ struct InventoryView: View {
         case households(inviteCode: String?)
         case notifications
         case map(roomID: String, roomName: String)
+        /// One level of storage: a room’s own level, or the inside of a
+        /// container.
+        case storage(StorageTarget)
     }
 
     init(
@@ -125,6 +128,12 @@ struct InventoryView: View {
             HouseholdsView(userID: userID, pendingInviteCode: inviteCode)
         case .notifications:
             NotificationsView()
+        case .storage(let target):
+            StorageView(
+                target: target,
+                householdID: householdID ?? "",
+                userID: userID
+            )
         case .map(let roomID, let roomName):
             RoomMapView(
                 roomID: roomID,
@@ -180,6 +189,14 @@ struct InventoryView: View {
                                 .foregroundStyle(Color.bfTextMuted)
                             Spacer(minLength: 0)
                             if let roomID = section.roomID {
+                                Button {
+                                    path.append(.storage(.room(id: roomID, name: section.title)))
+                                } label: {
+                                    Image(systemName: "square.stack.3d.up")
+                                        .font(.footnote)
+                                }
+                                .accessibilityLabel("Storage in \(section.title)")
+
                                 Button {
                                     path.append(.map(roomID: roomID, roomName: section.title))
                                 } label: {

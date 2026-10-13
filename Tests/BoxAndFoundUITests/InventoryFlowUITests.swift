@@ -171,6 +171,44 @@ final class NotificationsFlowUITests: UITestCase {
     }
 }
 
+/// Storage as a tree, walked the way a person walks it.
+final class StorageFlowUITests: UITestCase {
+
+    func testOpeningARoomShowsWhatIsStoredInIt() {
+        let app = launch()
+        assertVisible(app.staticTexts["Winter Clothes"], "The box list never appeared")
+
+        app.buttons["Storage in Attic"].tap()
+
+        assertVisible(app.staticTexts["Wardrobe"], "The storage screen never pushed")
+        // The hidden holder for a room's own items is never offered as
+        // something to open — on screen, those things are simply in the room.
+        XCTAssertTrue(app.staticTexts["Stepladder"].exists, "A room's loose items never appeared")
+        XCTAssertEqual(
+            app.cells.staticTexts.matching(identifier: "Attic").count, 0,
+            "The hidden room-items holder was listed as a place"
+        )
+    }
+
+    /// The round trip the tree exists for: a box four levels in is still
+    /// reachable, and still opens.
+    func testOpeningAContainerShowsWhatIsInside() {
+        let app = launch()
+        assertVisible(app.staticTexts["Winter Clothes"], "The box list never appeared")
+
+        app.buttons["Storage in Attic"].tap()
+        assertVisible(app.staticTexts["Wardrobe"], "The storage screen never pushed")
+        app.staticTexts["Wardrobe"].tap()
+
+        // Its own item is loose in it; the box inside it is a thing to open.
+        assertVisible(app.staticTexts["Winter coat"], "The container never pushed")
+        XCTAssertTrue(app.staticTexts["Winter Clothes"].exists, "The nested box was not listed")
+
+        app.staticTexts["Winter Clothes"].tap()
+        assertVisible(app.staticTexts["Scarf"], "The box would not open from inside a container")
+    }
+}
+
 /// The room map, reached the way a person reaches it.
 final class RoomMapFlowUITests: UITestCase {
 

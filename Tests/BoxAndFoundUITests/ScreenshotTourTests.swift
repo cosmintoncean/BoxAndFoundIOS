@@ -96,7 +96,18 @@ final class ScreenshotTourTests: UITestCase {
         shoot("10-notification-settings", after: app.staticTexts["Someone asks for an item back"])
     }
 
-    func testTour11Households() {
+    func testTour11Storage() {
+        let app = launch()
+        assertVisible(app.staticTexts["Winter Clothes"], "The box list never appeared")
+        app.buttons["Storage in Attic"].tap()
+
+        shoot("11-storage-room", after: app.staticTexts["Wardrobe"])
+
+        app.staticTexts["Wardrobe"].tap()
+        shoot("12-storage-container", after: app.staticTexts["Winter coat"])
+    }
+
+    func testTour13Households() {
         let app = launch()
         assertVisible(app.staticTexts["Winter Clothes"], "The box list never appeared")
         app.buttons["More"].tap()
@@ -104,6 +115,6 @@ final class ScreenshotTourTests: UITestCase {
 
         // The navigation bar rather than the section header: a `Form` uppercases
         // its headers for display, and XCUITest reads what is displayed.
-        shoot("11-households", after: app.navigationBars["Households"])
+        shoot("13-households", after: app.navigationBars["Households"])
     }
 }
