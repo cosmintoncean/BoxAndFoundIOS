@@ -12,8 +12,8 @@ struct TagsTests {
     private func box(
         _ id: String,
         tags: [String] = [],
-        items: [BoxItem] = [],
-        type: String = Places.typeBox
+        type: String = Places.typeBox,
+        items: [BoxItem] = []
     ) -> Box {
         Box(id: id, name: id, householdID: "hh", items: items, tags: tags, type: type)
     }
