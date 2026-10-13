@@ -59,14 +59,20 @@ struct InventoryRepository: InventoryReading {
         }
     }
 
-    /// Boxes with their items in one round trip, matching the web client's
-    /// `*, box_items(...)` projection. Item ordering is applied when `Box` is
-    /// built, because PostgREST will not sort an embedded table.
-    func boxes(householdID: String) async throws(InventoryFailure) -> [Box] {
+    /// Everything that holds something, boxes and containers alike, with the
+    /// items in one round trip — the web client's `*, box_items(...)`
+    /// projection. Item ordering is applied when `Box` is built, because
+    /// PostgREST will not sort an embedded table.
+    ///
+    /// `places` rather than `boxes`: the table was renamed when storage became
+    /// a tree, and `boxes` is now a view of it filtered to `type = 'box'`.
+    /// Reading the view is what kept a wardrobe invisible to this client —
+    /// the row is there, the view hides it, and nothing errors.
+    func places(householdID: String) async throws(InventoryFailure) -> [Box] {
         try await run {
             let rows: [BoxRow] = try await client
-                .from("boxes")
-                .select(Self.boxColumns)
+                .from("places")
+                .select(Self.placeColumns)
                 .eq("household_id", value: householdID)
                 .order("name", ascending: true)
                 .execute()
@@ -80,8 +86,8 @@ struct InventoryRepository: InventoryReading {
     func box(id: String) async throws(InventoryFailure) -> Box {
         try await run {
             let row: BoxRow = try await client
-                .from("boxes")
-                .select(Self.boxColumns)
+                .from("places")
+                .select(Self.placeColumns)
                 .eq("id", value: id)
                 .single()
                 .execute()
@@ -90,8 +96,8 @@ struct InventoryRepository: InventoryReading {
         }
     }
 
-    private static let boxColumns =
-        "*, box_items(id,name,qty,position,taken,taken_at,taken_by)"
+    private static let placeColumns =
+        "*, box_items(id,name,qty,position,taken,taken_at,taken_by,tags)"
 
     private func run<T>(
         _ block: () async throws -> T

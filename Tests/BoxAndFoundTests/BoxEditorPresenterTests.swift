@@ -95,7 +95,7 @@ private struct StubReader: InventoryReading {
         return rooms
     }
 
-    func boxes(householdID: String) async throws(InventoryFailure) -> [Box] { [] }
+    func places(householdID: String) async throws(InventoryFailure) -> [Box] { [] }
 
     func box(id: String) async throws(InventoryFailure) -> Box {
         if let failure { throw failure }

@@ -22,7 +22,7 @@ private struct StubInventory: InventoryReading {
         return allRooms
     }
 
-    func boxes(householdID: String) async throws(InventoryFailure) -> [Box] {
+    func places(householdID: String) async throws(InventoryFailure) -> [Box] {
         if let failure { throw failure }
         return allBoxes.filter { $0.householdID == nil || $0.householdID == householdID }
     }

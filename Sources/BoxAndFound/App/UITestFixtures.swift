@@ -118,7 +118,7 @@ final class FixtureInventory:
         rooms.filter { $0.householdID == householdID }
     }
 
-    func boxes(householdID: String) async throws(InventoryFailure) -> [Box] {
+    func places(householdID: String) async throws(InventoryFailure) -> [Box] {
         boxes.filter { $0.householdID == householdID }
     }
 

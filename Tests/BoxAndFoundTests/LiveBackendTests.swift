@@ -77,10 +77,10 @@ struct LiveBackendTests {
 
     /// The one most likely to be wrong: `box_items` has to be a relationship
     /// PostgREST can resolve, and every column named in it has to exist.
-    @Test("Boxes with their items embedded in one round trip")
+    @Test("Places with their items embedded in one round trip")
     func boxesQueryShape() async {
-        await expectAccepted("boxes with embedded box_items") {
-            _ = try await InventoryRepository().boxes(householdID: absentID)
+        await expectAccepted("places with embedded box_items") {
+            _ = try await InventoryRepository().places(householdID: absentID)
         }
     }
 

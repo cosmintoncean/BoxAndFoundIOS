@@ -73,9 +73,12 @@ final class RoomMapPresenter: Presenter {
             // the inventory. A box moved to another room keeps its token until
             // someone redraws the map, which is why these are matched by id
             // rather than filtered by room.
-            let boxes = try await inventory.boxes(householdID: householdID)
+            // Containers included: the web's map editor can put a wardrobe on
+            // a map as readily as a box, and a token whose name went missing
+            // would draw blank.
+            let places = try await inventory.places(householdID: householdID)
             boxNames = Dictionary(
-                boxes.map { ($0.id, InventoryCopy.boxName($0.name)) },
+                places.map { ($0.id, InventoryCopy.boxName($0.name)) },
                 uniquingKeysWith: { first, _ in first }
             )
         } catch {

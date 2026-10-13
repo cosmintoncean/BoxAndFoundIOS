@@ -40,6 +40,7 @@ struct BoxItemRow: Decodable {
     let taken: Bool?
     let taken_at: String?
     let taken_by: String?
+    let tags: [String]?
 
     var domain: BoxItem {
         // The defaults match the column defaults: a row written by an older
@@ -51,7 +52,8 @@ struct BoxItemRow: Decodable {
             position: position ?? 0,
             isTaken: taken ?? false,
             takenAt: taken_at,
-            takenBy: taken_by
+            takenBy: taken_by,
+            tags: tags ?? []
         )
     }
 }
@@ -65,6 +67,9 @@ struct BoxRow: Decodable {
     let room_id: String?
     let household_id: String?
     let box_items: [BoxItemRow]?
+    let tags: [String]?
+    let type: String?
+    let parent_id: String?
 
     var domain: Box {
         Box(
@@ -75,7 +80,12 @@ struct BoxRow: Decodable {
             icon: icon,
             roomID: room_id,
             householdID: household_id,
-            items: (box_items ?? []).map(\.domain)
+            items: (box_items ?? []).map(\.domain),
+            tags: tags ?? [],
+            // Absent only when read through the compatibility view, which is
+            // filtered to boxes anyway.
+            type: type ?? Places.typeBox,
+            parentID: parent_id
         )
     }
 }

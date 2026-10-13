@@ -164,9 +164,12 @@ final class InventoryPresenter: Presenter {
 
         do {
             async let rooms = repository.rooms(householdID: household.id)
-            async let boxes = repository.boxes(householdID: household.id)
+            async let places = repository.places(householdID: household.id)
             self.rooms = try await rooms
-            self.boxes = try await boxes
+            // One read brings back everything that holds something. This
+            // screen lists boxes; containers, and the hidden holder for a
+            // room's own loose items, are the storage screen's business.
+            self.boxes = try await places.filter(Places.isBox)
         } catch {
             failure = InventoryFailure.from(error)
             rooms = []

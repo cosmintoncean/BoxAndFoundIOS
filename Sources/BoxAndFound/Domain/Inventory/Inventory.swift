@@ -36,6 +36,9 @@ struct BoxItem: Equatable, Identifiable, Sendable {
     let isTaken: Bool
     let takenAt: String?
     let takenBy: String?
+    /// Free text, normalised by `Tags`. Defaulted, so a row written before the
+    /// column existed still decodes.
+    let tags: [String]
 
     init(
         id: String,
@@ -44,7 +47,8 @@ struct BoxItem: Equatable, Identifiable, Sendable {
         position: Int = 0,
         isTaken: Bool = false,
         takenAt: String? = nil,
-        takenBy: String? = nil
+        takenBy: String? = nil,
+        tags: [String] = []
     ) {
         self.id = id
         self.name = name
@@ -53,6 +57,7 @@ struct BoxItem: Equatable, Identifiable, Sendable {
         self.isTaken = isTaken
         self.takenAt = takenAt
         self.takenBy = takenBy
+        self.tags = tags
     }
 }
 
@@ -71,6 +76,14 @@ struct Box: Equatable, Identifiable, Sendable {
     /// ordering the web client relies on is applied here, once, at
     /// construction — rather than by every reader remembering to.
     let items: [BoxItem]
+    /// Free text, normalised by `Tags`.
+    let tags: [String]
+    /// What this is: `Places.typeBox`, or the kind of furniture it is. Free
+    /// text, so a type a newer client invented reads as a container here
+    /// rather than as an error.
+    let type: String
+    /// The container this sits inside, or nil when it sits in the room itself.
+    let parentID: String?
 
     init(
         id: String,
@@ -80,7 +93,10 @@ struct Box: Equatable, Identifiable, Sendable {
         icon: String? = nil,
         roomID: String? = nil,
         householdID: String? = nil,
-        items: [BoxItem] = []
+        items: [BoxItem] = [],
+        tags: [String] = [],
+        type: String = Places.typeBox,
+        parentID: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -89,6 +105,9 @@ struct Box: Equatable, Identifiable, Sendable {
         self.icon = icon
         self.roomID = roomID
         self.householdID = householdID
+        self.tags = tags
+        self.type = type
+        self.parentID = parentID
         self.items = items.sorted {
             if $0.position != $1.position { return $0.position < $1.position }
             // Name as a tiebreak so the list cannot reshuffle between reads.

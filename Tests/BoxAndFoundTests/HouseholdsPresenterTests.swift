@@ -53,7 +53,7 @@ private struct StubReader: InventoryReading {
     var all: [Household] = []
     func households(userID: String) async throws(InventoryFailure) -> [Household] { all }
     func rooms(householdID: String) async throws(InventoryFailure) -> [Room] { [] }
-    func boxes(householdID: String) async throws(InventoryFailure) -> [Box] { [] }
+    func places(householdID: String) async throws(InventoryFailure) -> [Box] { [] }
     func box(id: String) async throws(InventoryFailure) -> Box { throw InventoryFailure.notFound }
 }
 

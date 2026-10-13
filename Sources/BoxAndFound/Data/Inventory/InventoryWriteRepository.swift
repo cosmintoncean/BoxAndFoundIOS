@@ -58,6 +58,12 @@ struct InventoryWriteRepository: InventoryWriting {
                 "room_id": json(roomID),
                 "image_url": json(imageURL),
             ]
+            // Writes still go through the compatibility view while this client
+            // only makes boxes. The view is auto-updatable and its
+            // `check_option = cascaded` is a guarantee rather than a
+            // limitation: nothing inserted here can land outside
+            // `type = 'box'`. Creating a container means writing to `places`
+            // directly, which is the next step, not this one.
             let row: BoxRow = try await client
                 .from("boxes")
                 .insert(body)
