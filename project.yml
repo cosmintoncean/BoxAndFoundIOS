@@ -51,8 +51,6 @@ targets:
         CURRENT_PROJECT_VERSION: "1"
         TARGETED_DEVICE_FAMILY: "1"       # iPhone only, as the web client is portrait-only
         CODE_SIGNING_ALLOWED: NO          # CI builds for the simulator; signing arrives with TestFlight
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
-        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
     # Generated alongside the Info.plist rather than committed, for the same
     # reason. Sign in with Apple does not work without it on a signed build,
     # and offering Google or Facebook without Apple fails App Store review.
@@ -67,6 +65,17 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         ITSAppUsesNonExemptEncryption: false
+        # An app with no launch screen is given a compatibility canvas and
+        # letterboxed — black bands above and below, and the layout squeezed
+        # into a shape no current iPhone has. The first screenshots out of CI
+        # are of exactly that.
+        #
+        # These two were set as INFOPLIST_KEY_ build settings, which the build
+        # system only reads when it generates the Info.plist itself. This
+        # target ships one, so both were dead. They belong here, in the file
+        # that is actually used.
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         # Build settings from Secrets.xcconfig, surfaced so the app can read
         # them at runtime. Mirrors the Android BuildConfig fields.
         SupabaseURL: $(SUPABASE_URL)

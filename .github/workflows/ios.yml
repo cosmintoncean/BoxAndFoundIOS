@@ -192,6 +192,9 @@ jobs:
                      | [.exportedFileName, .suggestedHumanReadableName] | @tsv' \
                 "$into/manifest.json" 2>/dev/null \
               | while IFS="$(printf '\t')" read -r from to; do
+                  # XCTest appends its own `_0_<uuid>` to every attachment
+                  # name, which buries the part a person reads.
+                  to="$(printf '%s' "$to" | sed -E 's/_[0-9]+_[0-9A-Fa-f-]{36}//')"
                   case "$to" in *.*) ;; *) to="$to.png" ;; esac
                   if [ -f "$into/$from" ]; then mv -f "$into/$from" "$into/$to"; fi
                 done
