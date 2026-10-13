@@ -91,24 +91,140 @@ jobs:
           fi
           echo "udid=$udid" >> "$GITHUB_OUTPUT"
 
-      - name: Build and test
+      # Booted here rather than by xcodebuild, because a recording and a status
+      # bar both need a device that already exists. xcodebuild reuses whatever
+      # is booted for the destination it was given.
+      - name: Boot the simulator
+        run: |
+          udid="${{ steps.sim.outputs.udid }}"
+          xcrun simctl boot "$udid" || true
+          xcrun simctl bootstatus "$udid" -b
+          # 9:41, full battery, full signal — the clock and the battery are the
+          # only things on screen that change between runs, and a screenshot
+          # worth comparing to last week's cannot have them drifting.
+          xcrun simctl status_bar "$udid" override \
+            --time "9:41" \
+            --batteryState charged \
+            --batteryLevel 100 \
+            --cellularBars 4 \
+            --wifiBars 3 || true
+          xcrun simctl ui "$udid" appearance light || true
+
+      - name: Build for testing
         run: |
           set -o pipefail
-          xcodebuild test \
+          xcodebuild build-for-testing \
             -project BoxAndFound.xcodeproj \
             -scheme BoxAndFound \
             -destination "id=${{ steps.sim.outputs.udid }}" \
             -clonedSourcePackagesDirPath .spm \
-            -resultBundlePath TestResults.xcresult \
+            -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             | tee build.log
+
+      # The video is the only way anyone on this project sees the app move:
+      # transitions, spinners, keyboard behaviour and the order things appear
+      # in are all invisible to a screenshot and to an assertion.
+      - name: Test, with a recording
+        run: |
+          udid="${{ steps.sim.outputs.udid }}"
+          # h264 rather than the default hevc, so the file plays on Windows
+          # without hunting for a codec.
+          xcrun simctl io "$udid" recordVideo --codec h264 --force test-run.mp4 &
+          recorder=$!
+
+          status=0
+          set -o pipefail
+          xcodebuild test-without-building \
+            -project BoxAndFound.xcodeproj \
+            -scheme BoxAndFound \
+            -destination "id=$udid" \
+            -derivedDataPath build \
+            -resultBundlePath TestResults.xcresult \
+            | tee test.log || status=$?
+
+          # SIGINT, not a kill: recordVideo writes the index that makes the
+          # file playable only when it is asked to stop politely. Waiting for
+          # it to exit is what lets the upload step find a finished file.
+          kill -INT "$recorder" 2>/dev/null || true
+          wait "$recorder" 2>/dev/null || true
+
+          exit $status
+
+      # Dark mode is where a hardcoded colour shows up, and only the tour is
+      # rerun — the behaviour suites have nothing to say about appearance, and
+      # macOS minutes bill at 10x.
+      - name: Photograph the app in dark mode
+        if: always()
+        run: |
+          udid="${{ steps.sim.outputs.udid }}"
+          xcrun simctl ui "$udid" appearance dark
+          set -o pipefail
+          xcodebuild test-without-building \
+            -project BoxAndFound.xcodeproj \
+            -scheme BoxAndFound \
+            -destination "id=$udid" \
+            -derivedDataPath build \
+            -only-testing:BoxAndFoundUITests/ScreenshotTourTests \
+            -resultBundlePath TestResultsDark.xcresult \
+            | tee dark.log
+
+      # Attachments come out of the bundle named by UUID, with a manifest
+      # holding the names the tests gave them. Renaming is best-effort: a
+      # schema change should cost readable filenames, not the gallery.
+      - name: Extract the screenshots
+        if: always()
+        run: |
+          extract() {
+            bundle="$1"
+            into="$2"
+            [ -d "$bundle" ] || return 0
+            mkdir -p "$into"
+            if ! xcrun xcresulttool export attachments \
+                   --path "$bundle" --output-path "$into" >/dev/null 2>&1; then
+              echo "::warning::Could not export attachments from $bundle"
+              xcrun xcresulttool export attachments --help || true
+              return 0
+            fi
+            if [ -f "$into/manifest.json" ]; then
+              jq -r '.. | objects
+                     | select(.exportedFileName and .suggestedHumanReadableName)
+                     | [.exportedFileName, .suggestedHumanReadableName] | @tsv' \
+                "$into/manifest.json" 2>/dev/null \
+              | while IFS="$(printf '\t')" read -r from to; do
+                  case "$to" in *.*) ;; *) to="$to.png" ;; esac
+                  if [ -f "$into/$from" ]; then mv -f "$into/$from" "$into/$to"; fi
+                done
+            fi
+          }
+
+          mkdir -p gallery
+          extract TestResults.xcresult gallery/light
+          extract TestResultsDark.xcresult gallery/dark
+          if [ -f test-run.mp4 ]; then mv test-run.mp4 gallery/; fi
+
+          echo '## The app, as of this commit' >> "$GITHUB_STEP_SUMMARY"
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Download the `app-screenshots` artifact below.' >> "$GITHUB_STEP_SUMMARY"
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+          find gallery -type f | sort | sed 's/^/- /' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the gallery
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-screenshots
+          path: gallery
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Summarise failures
         if: failure()
         run: |
-          echo '## Compiler output' >> "$GITHUB_STEP_SUMMARY"
+          echo '## Compiler and test output' >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
-          grep -E "error:|warning:|failed" build.log | head -100 >> "$GITHUB_STEP_SUMMARY" || true
+          grep -hE "error:|failed" build.log test.log dark.log 2>/dev/null \
+            | head -100 >> "$GITHUB_STEP_SUMMARY" || true
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload the result bundle

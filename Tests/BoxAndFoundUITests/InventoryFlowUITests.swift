@@ -8,52 +8,8 @@ import XCTest
 /// These exist to catch what a presenter test structurally cannot — a view
 /// tree that will not render, a navigation destination that never fires, a
 /// button disabled when it should not be. They say nothing about how anything
-/// *looks*; that still waits for a real screen.
-final class InventoryFlowUITests: XCTestCase {
-
-    override func setUp() {
-        super.setUp()
-        continueAfterFailure = false
-    }
-
-    private func launch() -> XCUIApplication {
-        let app = XCUIApplication()
-        app.launchArguments += ["-uiTestFixtures"]
-        app.launch()
-        return app
-    }
-
-    /// Generous on purpose: a cold simulator boot under CI is slower than
-    /// anything a person would sit through, and a flaky suite is worse than no
-    /// suite.
-    private let timeout: TimeInterval = 30
-
-    private func assertVisible(
-        _ element: XCUIElement,
-        _ message: String,
-        file: StaticString = #filePath,
-        line: UInt = #line
-    ) {
-        XCTAssertTrue(element.waitForExistence(timeout: timeout), message, file: file, line: line)
-    }
-
-    /// Brings an element below the fold into view.
-    ///
-    /// XCUITest does not scroll to find things: an element off-screen in a
-    /// `Form` is simply absent from the query, which reads exactly like a view
-    /// that was never built. The editor is taller than a phone — name,
-    /// location, room, a twelve-icon grid and a photo section all sit above
-    /// the item list — so anything below that has to be scrolled to first.
-    @discardableResult
-    private func scroll(to element: XCUIElement, in app: XCUIApplication, swipes: Int = 6) -> Bool {
-        for _ in 0..<swipes {
-            if element.exists && element.isHittable { return true }
-            app.swipeUp()
-        }
-        return element.exists && element.isHittable
-    }
-
-    // MARK: -
+/// *looks*; that is what `ScreenshotTourTests` is for.
+final class InventoryFlowUITests: UITestCase {
 
     func testSignedInLaunchLandsOnTheInventory() {
         let app = launch()
@@ -162,25 +118,10 @@ final class InventoryFlowUITests: XCTestCase {
 }
 
 /// The notification feed, driven the way a person would reach it.
-final class NotificationsFlowUITests: XCTestCase {
-
-    override func setUp() {
-        super.setUp()
-        continueAfterFailure = false
-    }
-
-    private func launch() -> XCUIApplication {
-        let app = XCUIApplication()
-        app.launchArguments += ["-uiTestFixtures"]
-        app.launch()
-        return app
-    }
+final class NotificationsFlowUITests: UITestCase {
 
     private func openNotifications(_ app: XCUIApplication) {
-        XCTAssertTrue(
-            app.staticTexts["Winter Clothes"].waitForExistence(timeout: 30),
-            "The box list never appeared"
-        )
+        assertVisible(app.staticTexts["Winter Clothes"], "The box list never appeared")
         app.buttons["More"].tap()
         app.buttons["Notifications"].tap()
     }
@@ -189,10 +130,7 @@ final class NotificationsFlowUITests: XCTestCase {
         let app = launch()
         openNotifications(app)
 
-        XCTAssertTrue(
-            app.staticTexts["Cosmin wants the Scarf back"].waitForExistence(timeout: 30),
-            "The feed never appeared"
-        )
+        assertVisible(app.staticTexts["Cosmin wants the Scarf back"], "The feed never appeared")
         XCTAssertTrue(app.staticTexts["Sam joined Home"].exists)
     }
 
@@ -203,7 +141,7 @@ final class NotificationsFlowUITests: XCTestCase {
         openNotifications(app)
 
         let markAll = app.buttons["Mark all read"]
-        XCTAssertTrue(markAll.waitForExistence(timeout: 30), "No mark-all button")
+        assertVisible(markAll, "No mark-all button")
         XCTAssertTrue(markAll.isEnabled)
 
         markAll.tap()
@@ -211,7 +149,7 @@ final class NotificationsFlowUITests: XCTestCase {
         // Polled rather than waited on with an NSPredicate expectation: that
         // API captures the test case itself, which Swift 6 rejects as a
         // non-Sendable value crossing an isolation boundary.
-        let deadline = Date().addingTimeInterval(30)
+        let deadline = Date().addingTimeInterval(timeout)
         while markAll.isEnabled && Date() < deadline {
             usleep(200_000)
         }
@@ -224,8 +162,8 @@ final class NotificationsFlowUITests: XCTestCase {
 
         app.buttons["Notification settings"].tap()
 
-        XCTAssertTrue(
-            app.staticTexts["Someone asks for an item back"].waitForExistence(timeout: 30),
+        assertVisible(
+            app.staticTexts["Someone asks for an item back"],
             "The settings screen never pushed"
         )
         XCTAssertTrue(app.staticTexts["Someone joins a household"].exists)
@@ -234,51 +172,30 @@ final class NotificationsFlowUITests: XCTestCase {
 }
 
 /// The room map, reached the way a person reaches it.
-final class RoomMapFlowUITests: XCTestCase {
-
-    override func setUp() {
-        super.setUp()
-        continueAfterFailure = false
-    }
-
-    private func launch() -> XCUIApplication {
-        let app = XCUIApplication()
-        app.launchArguments += ["-uiTestFixtures"]
-        app.launch()
-        return app
-    }
+final class RoomMapFlowUITests: UITestCase {
 
     func testOpeningAMappedRoomDrawsIt() {
         let app = launch()
-        XCTAssertTrue(
-            app.staticTexts["Winter Clothes"].waitForExistence(timeout: 30),
-            "The box list never appeared"
-        )
+        assertVisible(app.staticTexts["Winter Clothes"], "The box list never appeared")
 
         app.buttons["Map of Attic"].tap()
 
-        // The token label is the proof the layout parsed and projected: it is
-        // drawn from the saved map, not from the box list.
-        XCTAssertTrue(
-            app.staticTexts["4.0 m × 3.0 m"].waitForExistence(timeout: 30),
-            "The map never drew"
-        )
+        // The size note is the proof the layout parsed and projected: it is
+        // measured off the saved walls, not read from the box list.
+        assertVisible(app.staticTexts["4.0 m × 3.0 m"], "The map never drew")
     }
 
     /// Most rooms are never drawn, so the empty state is the common case and
     /// has to say where maps come from.
     func testAnUnmappedRoomSaysSo() {
         let app = launch()
-        XCTAssertTrue(
-            app.staticTexts["Winter Clothes"].waitForExistence(timeout: 30),
-            "The box list never appeared"
-        )
+        assertVisible(app.staticTexts["Winter Clothes"], "The box list never appeared")
 
         app.buttons["Map of Garage"].tap()
 
         let empty = app.staticTexts.containing(
             NSPredicate(format: "label CONTAINS[c] 'has not been mapped'")
         ).firstMatch
-        XCTAssertTrue(empty.waitForExistence(timeout: 30), "No empty state for an unmapped room")
+        assertVisible(empty, "No empty state for an unmapped room")
     }
 }
