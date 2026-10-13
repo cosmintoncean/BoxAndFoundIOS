@@ -185,7 +185,14 @@ struct RoomMapView: View {
     /// reach one.
     private func tokenLabel(_ box: RoomMapViewState.BoxMark, in rect: CGRect) -> some View {
         let centre = place(box.centre, in: rect)
-        let width = max(44, box.width * rect.width)
+        // Wide enough that a name of ordinary length gets one line rather than
+        // two, without reaching across whatever is drawn beside it.
+        let width = max(64, box.width * rect.width)
+        // A token is small — the web's default is 44 units, well under a fifth
+        // of a metre — so a label centred on one lands on top of it and both
+        // become unreadable. It goes underneath instead, clear of the bottom
+        // edge by enough that a second line still does not touch.
+        let drop = max(6, box.height * rect.width) / 2 + 18
 
         return NavigationLink {
             BoxDetailView(
@@ -204,6 +211,6 @@ struct RoomMapView: View {
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .position(x: centre.x, y: centre.y)
+        .position(x: centre.x, y: centre.y + drop)
     }
 }

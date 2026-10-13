@@ -62,8 +62,16 @@ final class SessionStore {
         try? await client.auth.signOut()
     }
 
+    /// An expired session is not a session.
+    ///
+    /// Today the SDK emits the initial session only after trying to refresh
+    /// the stored one, so an expired session arrives here as nil and this
+    /// guard never fires. Its next major release emits whatever is stored,
+    /// valid or not — a change it warns about at runtime, which is how this
+    /// was noticed. Without the check that lands as a signed-in person looking
+    /// at an inventory screen whose every query then fails on a 401.
     private static func narrow(_ session: Session?, allowlist: [String]) -> AuthState {
-        guard let session else { return .signedOut }
+        guard let session, !session.isExpired else { return .signedOut }
         let user = session.user
         let meta = user.userMetadata
         return .signedIn(
