@@ -26,7 +26,12 @@ final class ScreenshotTourTests: UITestCase {
 
     func testTour02Inventory() {
         let app = launch()
-        shoot("02-inventory", after: app.staticTexts["Winter Clothes"])
+        assertVisible(app.staticTexts["Winter Clothes"], "The box list never appeared")
+        // Waited on rather than assumed: the first gallery with a tag bar
+        // photographed a blank band where it should have been, and a
+        // screenshot cannot tell "not built yet" from "built and not drawn".
+        assertVisible(app.buttons["winter"], "The tag bar was not in the picture")
+        shoot("02-inventory")
     }
 
     func testTour03Search() {

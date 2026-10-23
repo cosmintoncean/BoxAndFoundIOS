@@ -47,25 +47,29 @@ struct InventoryView: View {
             // household whose only use of it is on something loose in a
             // container, say — and a bar that vanished with the list would
             // leave no way to clear the filter that emptied it.
-            VStack(spacing: 0) {
-                tagBar(state)
-                content(state)
-            }
-            .navigationTitle(state.title)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { toolbar(state) }
-            .navigationDestination(for: Route.self) { route in
-                destination(route, householdID: state.activeHouseholdID)
-            }
-            .searchableWhen(
-                state.isSearchVisible,
-                text: Binding(
-                    get: { state.searchTerm },
-                    set: { presenter.searchChanged($0) }
-                ),
-                prompt: "Search boxes and items"
-            )
-            .refreshable { await presenter.refresh() }
+            //
+            // A safe-area inset rather than a VStack: in a VStack the bar laid
+            // out at its full height and drew nothing at all, which the first
+            // gallery caught as a band of empty space above the list. An inset
+            // is what a navigation stack expects a bar over a scrolling list
+            // to be, and it keeps the list's own insets honest underneath it.
+            content(state)
+                .safeAreaInset(edge: .top, spacing: 0) { tagBar(state) }
+                .navigationTitle(state.title)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar { toolbar(state) }
+                .navigationDestination(for: Route.self) { route in
+                    destination(route, householdID: state.activeHouseholdID)
+                }
+                .searchableWhen(
+                    state.isSearchVisible,
+                    text: Binding(
+                        get: { state.searchTerm },
+                        set: { presenter.searchChanged($0) }
+                    ),
+                    prompt: "Search boxes and items"
+                )
+                .refreshable { await presenter.refresh() }
         }
         .tint(.bfAccent)
         .task {
