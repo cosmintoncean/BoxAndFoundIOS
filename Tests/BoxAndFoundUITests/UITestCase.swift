@@ -82,6 +82,19 @@ class UITestCase: XCTestCase {
         add(attachment)
     }
 
+    /// Writes the whole element tree, with frames, into the test results.
+    ///
+    /// The counterpart to `shoot` for the cases a picture cannot answer: an
+    /// element that exists and is tappable but does not appear is either
+    /// somewhere else on screen or underneath something, and both of those are
+    /// numbers rather than pixels.
+    func describe(_ app: XCUIApplication, as name: String) {
+        let attachment = XCTAttachment(string: app.debugDescription)
+        attachment.name = "\(name).txt"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     /// Waits for the screen to settle before photographing it.
     ///
     /// `waitForExistence` returns the moment a view exists, which under

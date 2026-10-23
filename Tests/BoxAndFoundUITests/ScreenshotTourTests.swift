@@ -31,6 +31,14 @@ final class ScreenshotTourTests: UITestCase {
         // photographed a blank band where it should have been, and a
         // screenshot cannot tell "not built yet" from "built and not drawn".
         assertVisible(app.buttons["winter"], "The tag bar was not in the picture")
+
+        // The bar exists here, is tappable, and does not draw. Two guesses at
+        // why have now cost twenty minutes each, so this run measures instead:
+        // where the chips actually are, and what is sitting where they should
+        // be. The frames come out of the result bundle as a text file next to
+        // the screenshots.
+        describe(app, as: "02-inventory-frames")
+
         shoot("02-inventory")
     }
 
