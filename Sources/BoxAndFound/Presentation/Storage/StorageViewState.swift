@@ -52,6 +52,45 @@ struct StorageViewState: Equatable {
         case contents(Contents)
     }
 
+    /// One kind of furniture, offered by name.
+    struct TypeOption: Equatable, Identifiable {
+        let id: String
+        let label: String
+        let symbol: String
+    }
+
+    /// The container being made, or nil when nothing is being made.
+    struct ContainerDraft: Equatable {
+        var name: String
+        var type: String
+        let types: [TypeOption]
+        var canSave: Bool
+        var isSaving: Bool
+        /// Why the last attempt did not land, said where it was made.
+        var errorMessage: String?
+    }
+
+    /// Something to put in this place itself rather than in a box.
+    struct ItemDraft: Equatable {
+        var name: String
+        var quantity: Int
+        var canSave: Bool
+        var isSaving: Bool
+        var errorMessage: String?
+    }
+
+    struct DeletePrompt: Equatable, Identifiable {
+        let id: String
+        let title: String
+        let message: String
+    }
+
     var title: String
     var content: Content
+    /// Nothing can be added to a level that is already as deep as storage
+    /// goes — items still can, because they do not nest.
+    var canAddContainer: Bool = false
+    var containerDraft: ContainerDraft?
+    var itemDraft: ItemDraft?
+    var deletePrompt: DeletePrompt?
 }

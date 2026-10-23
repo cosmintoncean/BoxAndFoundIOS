@@ -118,6 +118,21 @@ struct StoragePresenterTests {
         #expect(contents(presenter.viewState)?.containers.first?.detail == "1 box · 1 loose")
     }
 
+    /// Found by a UI test, which could not tap the row: both labels said
+    /// "Wardrobe", so the tap matched two elements.
+    @Test("A container named after its own kind says it once")
+    func kindLabelIsNotRepeated() async {
+        let presenter = await presenter(
+            .room(id: "room-attic", name: "Attic"),
+            places: attic
+        )
+        #expect(contents(presenter.viewState)?.containers.first?.kindLabel == nil)
+
+        let named = [place("w", name: "Mum's old one", type: "wardrobe")]
+        let other = await presenter(.room(id: "room-attic", name: "Attic"), places: named)
+        #expect(contents(other.viewState)?.containers.first?.kindLabel == "Wardrobe")
+    }
+
     @Test("A box says how many things are in it")
     func boxCount() async {
         let presenter = await presenter(

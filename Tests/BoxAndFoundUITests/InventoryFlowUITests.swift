@@ -190,6 +190,27 @@ final class StorageFlowUITests: UITestCase {
         )
     }
 
+    /// The write round trip: a container made on this screen, and the screen
+    /// saying so afterwards.
+    func testMakingAContainerAddsItToTheRoom() {
+        let app = launch()
+        assertVisible(app.staticTexts["Winter Clothes"], "The box list never appeared")
+        app.buttons["Storage in Attic"].tap()
+        assertVisible(app.staticTexts["Wardrobe"], "The storage screen never pushed")
+
+        app.buttons["Add"].tap()
+        app.buttons["New container"].tap()
+
+        let name = app.textFields["Name"]
+        assertVisible(name, "The container sheet never opened")
+        name.tap()
+        name.typeText("Shelving unit")
+        app.buttons["Shelving"].tap()
+        app.buttons["Create"].tap()
+
+        assertVisible(app.staticTexts["Shelving unit"], "The new container never reached the list")
+    }
+
     /// The round trip the tree exists for: a box four levels in is still
     /// reachable, and still opens.
     func testOpeningAContainerShowsWhatIsInside() {

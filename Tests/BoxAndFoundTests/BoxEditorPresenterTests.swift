@@ -60,6 +60,20 @@ private final class StubWriter: InventoryWriting, @unchecked Sendable {
         deletedBoxes.append(id)
     }
 
+    func createContainer(
+        householdID: String,
+        name: String,
+        type: String,
+        roomID: String?,
+        parentID: String?
+    ) async throws(InventoryFailure) -> Box {
+        Box(id: "container", name: name, roomID: roomID, type: type, parentID: parentID)
+    }
+
+    func movePlace(id: String, parentID: String?, roomID: String?) async throws(InventoryFailure) {}
+
+    func deleteContainer(id: String) async throws(InventoryFailure) {}
+
     func applyItemPlan(boxID: String, plan: ItemSyncPlan) async throws(InventoryFailure) {
         if let failure { throw failure }
         itemPlans.append((boxID, plan))

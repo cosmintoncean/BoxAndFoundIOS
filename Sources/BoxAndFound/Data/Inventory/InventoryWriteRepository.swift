@@ -67,7 +67,7 @@ struct InventoryWriteRepository: InventoryWriting {
             let row: BoxRow = try await client
                 .from("boxes")
                 .insert(body)
-                .select(Self.boxColumns)
+                .select(Self.placeColumns)
                 .single()
                 .execute()
                 .value
@@ -94,6 +94,65 @@ struct InventoryWriteRepository: InventoryWriting {
     func deleteBox(id: String) async throws(InventoryFailure) {
         try await run {
             _ = try await client.from("boxes").delete().eq("id", value: id).execute()
+        }
+    }
+
+    // MARK: - Containers
+    //
+    // These are the writes that cannot go through the compatibility view: it
+    // does not expose `type` or `parent_id`, which is the whole of what makes
+    // a container a container and what puts one inside another.
+
+    func createContainer(
+        householdID: String,
+        name: String,
+        type: String,
+        roomID: String?,
+        parentID: String?
+    ) async throws(InventoryFailure) -> Box {
+        try await run {
+            let body: [String: AnyJSON] = [
+                "household_id": .string(householdID),
+                "name": .string(name.trimmed),
+                "icon": .string(BoxIcons.normalise(nil)),
+                "type": .string(type),
+                "room_id": json(roomID),
+                "parent_id": json(parentID),
+            ]
+            let row: BoxRow = try await client
+                .from("places")
+                .insert(body)
+                .select(Self.placeColumns)
+                .single()
+                .execute()
+                .value
+            return row.domain
+        }
+    }
+
+    /// The room is sent only when the place is going back into one directly.
+    ///
+    /// With a parent, the server resolves the room from it and anything sent
+    /// here is ignored — a client that insisted would pull a box straight back
+    /// out of the wardrobe it was just put into.
+    func movePlace(
+        id: String,
+        parentID: String?,
+        roomID: String?
+    ) async throws(InventoryFailure) {
+        try await run {
+            var body: [String: AnyJSON] = ["parent_id": json(parentID)]
+            if parentID == nil { body["room_id"] = json(roomID) }
+            _ = try await client.from("places").update(body).eq("id", value: id).execute()
+        }
+    }
+
+    /// Losing a wardrobe must never mean losing what was in it. In Postgres
+    /// that is `on delete set null` on `parent_id` plus the room each row
+    /// already carries, so the contents simply rise one level.
+    func deleteContainer(id: String) async throws(InventoryFailure) {
+        try await run {
+            _ = try await client.from("places").delete().eq("id", value: id).execute()
         }
     }
 
@@ -229,8 +288,11 @@ struct InventoryWriteRepository: InventoryWriting {
 
     // MARK: -
 
-    private static let boxColumns =
-        "*, box_items(id,name,qty,position,taken,taken_at,taken_by)"
+    /// `*` asks for whatever the relation has, which is the point: through the
+    /// compatibility view that is a box's columns, and through `places` it is
+    /// those plus `type` and `parent_id`. One projection serves both.
+    private static let placeColumns =
+        "*, box_items(id,name,qty,position,taken,taken_at,taken_by,tags)"
 
     private func json(_ value: String?) -> AnyJSON {
         value.map { AnyJSON.string($0) } ?? .null

@@ -24,7 +24,175 @@ struct StorageView: View {
         }
         .navigationTitle(state.title)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar { toolbar(state) }
+        .sheet(
+            isPresented: Binding(
+                get: { state.containerDraft != nil },
+                set: { if !$0 { presenter.dismissContainerDraft() } }
+            )
+        ) {
+            if let draft = state.containerDraft {
+                containerSheet(draft)
+            }
+        }
+        .sheet(
+            isPresented: Binding(
+                get: { state.itemDraft != nil },
+                set: { if !$0 { presenter.dismissItemDraft() } }
+            )
+        ) {
+            if let draft = state.itemDraft {
+                itemSheet(draft)
+            }
+        }
+        .confirmationDialog(
+            state.deletePrompt?.title ?? "",
+            isPresented: Binding(
+                get: { state.deletePrompt != nil },
+                set: { if !$0 { presenter.dismissDelete() } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                Task { await presenter.confirmDeleteTapped() }
+            }
+            Button("Cancel", role: .cancel) { presenter.dismissDelete() }
+        } message: {
+            if let prompt = state.deletePrompt {
+                Text(prompt.message)
+            }
+        }
         .task { await presenter.appeared() }
+    }
+
+    @ToolbarContentBuilder
+    private func toolbar(_ state: StorageViewState) -> some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            Menu {
+                Button {
+                    presenter.newItemTapped()
+                } label: {
+                    Label("Add an item here", systemImage: "plus.circle")
+                }
+                if state.canAddContainer {
+                    Button {
+                        presenter.newContainerTapped()
+                    } label: {
+                        Label("New container", systemImage: "square.stack.3d.up")
+                    }
+                }
+            } label: {
+                Image(systemName: "plus")
+            }
+            .accessibilityLabel("Add")
+        }
+    }
+
+    private func containerSheet(_ draft: StorageViewState.ContainerDraft) -> some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField(
+                        "Name",
+                        text: Binding(
+                            get: { draft.name },
+                            set: { presenter.containerNameChanged($0) }
+                        )
+                    )
+                }
+                Section("Kind") {
+                    // A plain list rather than a picker: eleven kinds with
+                    // their own symbols read faster laid out than spun
+                    // through.
+                    ForEach(draft.types) { option in
+                        Button {
+                            presenter.containerTypeChanged(option.id)
+                        } label: {
+                            HStack {
+                                Image(systemName: option.symbol)
+                                    .foregroundStyle(Color.bfAccent)
+                                    .frame(width: 28)
+                                Text(option.label)
+                                    .foregroundStyle(Color.bfText)
+                                Spacer(minLength: 0)
+                                if option.id == draft.type {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(Color.bfAccent)
+                                }
+                            }
+                            .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                if let message = draft.errorMessage {
+                    Section {
+                        Text(message)
+                            .font(.footnote)
+                            .foregroundStyle(Color.bfAccent)
+                    }
+                }
+            }
+            .navigationTitle("New container")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { presenter.dismissContainerDraft() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Create") {
+                        Task { await presenter.createContainerTapped() }
+                    }
+                    .disabled(!draft.canSave)
+                }
+            }
+        }
+    }
+
+    private func itemSheet(_ draft: StorageViewState.ItemDraft) -> some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField(
+                        "What is it",
+                        text: Binding(
+                            get: { draft.name },
+                            set: { presenter.itemNameChanged($0) }
+                        )
+                    )
+                    Stepper(
+                        "Quantity: \(draft.quantity)",
+                        value: Binding(
+                            get: { draft.quantity },
+                            set: { presenter.itemQuantityChanged($0) }
+                        ),
+                        in: 1...999
+                    )
+                } footer: {
+                    Text("Things that are not in a box: a drill on a shelf, a bike against the wall.")
+                }
+                if let message = draft.errorMessage {
+                    Section {
+                        Text(message)
+                            .font(.footnote)
+                            .foregroundStyle(Color.bfAccent)
+                    }
+                }
+            }
+            .navigationTitle("Add an item")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { presenter.dismissItemDraft() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add") {
+                        Task { await presenter.addItemTapped() }
+                    }
+                    .disabled(!draft.canSave)
+                }
+            }
+        }
     }
 
     @ViewBuilder
@@ -93,6 +261,13 @@ struct StorageView: View {
                             placeRow(row)
                         }
                         .listRowBackground(Color.bfSurface)
+                        .swipeActions(edge: .trailing) {
+                            Button(role: .destructive) {
+                                presenter.deleteTapped(id: row.id)
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
                     }
                 }
             }

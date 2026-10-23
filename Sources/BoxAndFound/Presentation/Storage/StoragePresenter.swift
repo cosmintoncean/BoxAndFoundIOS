@@ -22,26 +22,98 @@ final class StoragePresenter: Presenter {
     private let target: StorageTarget
     private let householdID: String
     private let repository: any InventoryReading
+    private let writes: any InventoryWriting
 
     private var places: [Box] = []
     private var rooms: [Room] = []
     private var isLoading = true
     private var failure: InventoryFailure?
 
+    private var containerDraft: Draft?
+    private var itemDraft: ItemDraft?
+    private var pendingDelete: String?
+    /// A write that failed, said where it was attempted rather than over the
+    /// whole screen: a refused create must not look like a household that
+    /// would not load.
+    private var writeFailure: InventoryFailure?
+
+    /// The container being made. Held here rather than in the view so the
+    /// rules about it — a name is required, a type is always one of ours —
+    /// are testable.
+    private struct Draft: Equatable {
+        var name = ""
+        var type = Places.containerTypes.first ?? "other"
+        var isSaving = false
+    }
+
+    private struct ItemDraft: Equatable {
+        var name = ""
+        var quantity = 1
+        var isSaving = false
+    }
+
     init(
         target: StorageTarget,
         householdID: String,
-        repository: any InventoryReading = Dependencies.inventoryReading
+        repository: any InventoryReading = Dependencies.inventoryReading,
+        writes: any InventoryWriting = Dependencies.inventoryWriting
     ) {
         self.target = target
         self.householdID = householdID
         self.repository = repository
+        self.writes = writes
     }
 
     // MARK: - What the view draws
 
     var viewState: StorageViewState {
-        StorageViewState(title: title, content: content)
+        StorageViewState(
+            title: title,
+            content: content,
+            canAddContainer: !isAtTheDepthLimit,
+            containerDraft: containerDraft.map {
+                StorageViewState.ContainerDraft(
+                    name: $0.name,
+                    type: $0.type,
+                    types: Places.containerTypes.map { type in
+                        StorageViewState.TypeOption(
+                            id: type,
+                            label: ContainerLook.label(for: type),
+                            symbol: ContainerLook.symbol(for: type)
+                        )
+                    },
+                    // A container with no name cannot be told from the next
+                    // one in a list sorted by name.
+                    canSave: !$0.name.trimmed.isEmpty && !$0.isSaving,
+                    isSaving: $0.isSaving,
+                    errorMessage: writeFailure.map(InventoryCopy.message(for:))
+                )
+            },
+            itemDraft: itemDraft.map {
+                StorageViewState.ItemDraft(
+                    name: $0.name,
+                    quantity: $0.quantity,
+                    canSave: !$0.name.trimmed.isEmpty && !$0.isSaving,
+                    isSaving: $0.isSaving,
+                    errorMessage: writeFailure.map(InventoryCopy.message(for:))
+                )
+            },
+            deletePrompt: pendingDelete.flatMap { id in
+                guard let container = places.first(where: { $0.id == id }) else { return nil }
+                return StorageViewState.DeletePrompt(
+                    id: id,
+                    title: StorageCopy.deleteTitle,
+                    message: StorageCopy.deleteMessage(
+                        name: InventoryCopy.boxName(container.name),
+                        contents: Places.contents(of: container, in: places)
+                    )
+                )
+            }
+        )
+    }
+
+    private var isAtTheDepthLimit: Bool {
+        Places.depth(of: container, index: Places.index(places)) >= Places.maxDepth - 1
     }
 
     private var title: String {
@@ -96,6 +168,7 @@ final class StoragePresenter: Presenter {
                 depthNote: depth >= Places.maxDepth - 1
                     ? StorageCopy.tooDeep(limit: Places.maxDepth)
                     : nil
+
             )
         )
     }
@@ -118,13 +191,19 @@ final class StoragePresenter: Presenter {
 
     private func row(for place: Box) -> StorageViewState.PlaceRow {
         let isContainer = Places.isContainer(place)
+        let name = InventoryCopy.boxName(place.name)
+        let kind = ContainerLook.label(for: place.type)
         return StorageViewState.PlaceRow(
             id: place.id,
-            name: InventoryCopy.boxName(place.name),
+            name: name,
             symbol: isContainer
                 ? ContainerLook.symbol(for: place.type)
                 : BoxSymbols.symbol(forIconKey: place.icon),
-            kindLabel: isContainer ? ContainerLook.label(for: place.type) : nil,
+            // Most people call a wardrobe "Wardrobe", and a row that reads
+            // "Wardrobe / Wardrobe · 1 box" says the word twice to no end.
+            kindLabel: isContainer && kind.caseInsensitiveCompare(name) != .orderedSame
+                ? kind
+                : nil,
             detail: isContainer
                 ? StorageCopy.contents(Places.contents(of: place, in: places))
                 : InventoryCopy.itemCount(place.items.count),
@@ -156,6 +235,128 @@ final class StoragePresenter: Presenter {
     /// Coming back from a screen that may have written something.
     func refresh() async {
         await reload()
+    }
+
+    // MARK: - Making a container
+
+    func newContainerTapped() {
+        writeFailure = nil
+        containerDraft = Draft()
+    }
+
+    func containerNameChanged(_ name: String) { containerDraft?.name = name }
+
+    func containerTypeChanged(_ type: String) { containerDraft?.type = type }
+
+    func dismissContainerDraft() { containerDraft = nil }
+
+    func createContainerTapped() async {
+        guard let draft = containerDraft, !draft.name.trimmed.isEmpty, !draft.isSaving else {
+            return
+        }
+        containerDraft?.isSaving = true
+        do {
+            _ = try await writes.createContainer(
+                householdID: householdID,
+                name: draft.name.trimmed,
+                type: draft.type,
+                // A room is sent only at a room's own level. Inside a
+                // container the server resolves the room from the parent.
+                roomID: container == nil ? target.roomID : nil,
+                parentID: container?.id
+            )
+            containerDraft = nil
+            await reload()
+        } catch {
+            writeFailure = InventoryFailure.from(error)
+            containerDraft?.isSaving = false
+        }
+    }
+
+    // MARK: - Putting something here that is not in a box
+
+    func newItemTapped() {
+        writeFailure = nil
+        itemDraft = ItemDraft()
+    }
+
+    func itemNameChanged(_ name: String) { itemDraft?.name = name }
+
+    func itemQuantityChanged(_ quantity: Int) {
+        itemDraft?.quantity = max(1, min(quantity, 999))
+    }
+
+    func dismissItemDraft() { itemDraft = nil }
+
+    func addItemTapped() async {
+        guard let draft = itemDraft, !draft.name.trimmed.isEmpty, !draft.isSaving else { return }
+        itemDraft?.isSaving = true
+        do {
+            guard let holderID = try await holder() else {
+                itemDraft?.isSaving = false
+                return
+            }
+            let existing = places.first { $0.id == holderID }?.items ?? []
+            try await writes.applyItemPlan(
+                boxID: holderID,
+                plan: ItemSyncPlan(
+                    inserts: [
+                        ItemInsert(
+                            name: draft.name.trimmed,
+                            quantity: draft.quantity,
+                            position: ItemSync.nextPosition(after: existing),
+                            isTaken: false,
+                            takenAt: nil,
+                            takenBy: nil
+                        ),
+                    ]
+                )
+            )
+            itemDraft = nil
+            await reload()
+        } catch {
+            writeFailure = InventoryFailure.from(error)
+            itemDraft?.isSaving = false
+        }
+    }
+
+    /// What an item put here hangs off.
+    ///
+    /// A container holds its own. A room cannot — it is not a place and has no
+    /// id for `box_items.box_id` to point at — so it keeps a nameless
+    /// stand-in, made on the first thing put in the room and never shown.
+    private func holder() async throws(InventoryFailure) -> String? {
+        if let container { return container.id }
+        guard let roomID = target.roomID else { return nil }
+        if let existing = Places.roomItemsHolder(in: places, roomID: roomID) {
+            return existing.id
+        }
+        return try await writes.createContainer(
+            householdID: householdID,
+            name: "",
+            type: Places.typeRoomItems,
+            roomID: roomID,
+            parentID: nil
+        ).id
+    }
+
+    // MARK: - Removing a container
+
+    func deleteTapped(id: String) { pendingDelete = id }
+
+    func dismissDelete() { pendingDelete = nil }
+
+    func confirmDeleteTapped() async {
+        guard let id = pendingDelete else { return }
+        pendingDelete = nil
+        do {
+            try await writes.deleteContainer(id: id)
+            await reload()
+        } catch {
+            // Nothing is open to show this in, and the list is what the
+            // delete was about, so here it does belong over the screen.
+            failure = InventoryFailure.from(error)
+        }
     }
 
     private func reload() async {

@@ -203,6 +203,68 @@ final class FixtureInventory:
         boxes.removeAll { $0.id == id }
     }
 
+    func createContainer(
+        householdID: String,
+        name: String,
+        type: String,
+        roomID: String?,
+        parentID: String?
+    ) async throws(InventoryFailure) -> Box {
+        let container = Box(
+            id: makeID("place"),
+            name: name,
+            roomID: roomID,
+            householdID: FixtureInventory.householdID,
+            type: type,
+            parentID: parentID
+        )
+        boxes.append(container)
+        return container
+    }
+
+    func movePlace(id: String, parentID: String?, roomID: String?) async throws(InventoryFailure) {
+        guard let index = boxes.firstIndex(where: { $0.id == id }) else { return }
+        let old = boxes[index]
+        // The server resolves the room from the parent, so this does too:
+        // honouring a room sent with a parent would pull the place straight
+        // back out of what it was just put into.
+        let resolved = parentID.flatMap { parent in boxes.first { $0.id == parent }?.roomID }
+        boxes[index] = Box(
+            id: old.id,
+            name: old.name,
+            imageURL: old.imageURL,
+            location: old.location,
+            icon: old.icon,
+            roomID: parentID == nil ? roomID : resolved,
+            householdID: old.householdID,
+            items: old.items,
+            tags: old.tags,
+            type: old.type,
+            parentID: parentID
+        )
+    }
+
+    func deleteContainer(id: String) async throws(InventoryFailure) {
+        guard let going = boxes.first(where: { $0.id == id }) else { return }
+        // What was inside rises one level rather than going with it.
+        for (index, place) in boxes.enumerated() where place.parentID == id {
+            boxes[index] = Box(
+                id: place.id,
+                name: place.name,
+                imageURL: place.imageURL,
+                location: place.location,
+                icon: place.icon,
+                roomID: place.roomID,
+                householdID: place.householdID,
+                items: place.items,
+                tags: place.tags,
+                type: place.type,
+                parentID: Places.parentAfterDeleting(going)
+            )
+        }
+        boxes.removeAll { $0.id == id }
+    }
+
     func applyItemPlan(boxID: String, plan: ItemSyncPlan) async throws(InventoryFailure) {
         guard let index = boxes.firstIndex(where: { $0.id == boxID }) else { return }
         var items = boxes[index].items

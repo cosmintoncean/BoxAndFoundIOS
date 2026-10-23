@@ -35,4 +35,16 @@ enum StorageCopy {
     static func quantity(_ count: Int) -> String? {
         count > 1 ? "×\(count)" : nil
     }
+
+    static let deleteTitle = "Delete this container?"
+
+    /// Says what happens to the contents, because the answer is not obvious
+    /// and the wrong guess is the frightening one.
+    static func deleteMessage(name: String, contents: PlaceContents) -> String {
+        guard contents.total > 0 else {
+            return "\(name) is empty, so nothing moves."
+        }
+        return "Nothing inside \(name) is deleted. It moves out one level, "
+            + "into whatever \(name) is sitting in."
+    }
 }
