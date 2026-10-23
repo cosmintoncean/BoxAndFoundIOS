@@ -14,6 +14,16 @@ enum InventoryCopy {
         "Nothing matches \u{201C}\(term)\u{201D}."
     }
 
+    /// Why the list is empty, naming whichever of the two narrowed it — or
+    /// both, since a tag narrows a search rather than replacing it. Naming
+    /// only one leaves someone clearing a filter that was not the reason.
+    static func nothingMatches(term: String, tag: String?) -> String {
+        guard let tag else { return noResults(for: term) }
+        return term.isEmpty
+            ? "Nothing is tagged \u{201C}\(tag)\u{201D}."
+            : "Nothing tagged \u{201C}\(tag)\u{201D} matches \u{201C}\(term)\u{201D}."
+    }
+
     static func message(for failure: InventoryFailure) -> String {
         switch failure {
         case .network:

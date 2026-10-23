@@ -37,6 +37,19 @@ struct InventoryViewState: Equatable {
         let boxes: [BoxRow]
     }
 
+    /// One tag in the bar above the list.
+    struct TagChip: Equatable, Identifiable {
+        let id: String
+        let label: String
+        /// How much of this tag is about — per use, as the web counts it, so a
+        /// tag on a box and on two of its items reads 3.
+        let count: Int
+        let isActive: Bool
+        /// Read off the items rather than typed by anyone, and shown apart
+        /// from the rest.
+        let isDerived: Bool
+    }
+
     enum Content: Equatable {
         case loading
         /// Nothing to show, and why — no households, no boxes, or no results.
@@ -52,5 +65,8 @@ struct InventoryViewState: Equatable {
     var isHouseholdSwitcherVisible: Bool
     var searchTerm: String
     var isSearchVisible: Bool
+    /// Every tag in use, in a bar above the list. Empty when nothing is
+    /// tagged, which is most households for a while.
+    var tags: [TagChip] = []
     var content: Content
 }

@@ -42,22 +42,30 @@ struct InventoryView: View {
         let state = presenter.viewState
 
         NavigationStack(path: $path) {
-            content(state)
-                .navigationTitle(state.title)
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar { toolbar(state) }
-                .navigationDestination(for: Route.self) { route in
-                    destination(route, householdID: state.activeHouseholdID)
-                }
-                .searchableWhen(
-                    state.isSearchVisible,
-                    text: Binding(
-                        get: { state.searchTerm },
-                        set: { presenter.searchChanged($0) }
-                    ),
-                    prompt: "Search boxes and items"
-                )
-                .refreshable { await presenter.refresh() }
+            // The bar sits outside the content rather than at the top of the
+            // list, because a tag can filter every box out of view — on a
+            // household whose only use of it is on something loose in a
+            // container, say — and a bar that vanished with the list would
+            // leave no way to clear the filter that emptied it.
+            VStack(spacing: 0) {
+                tagBar(state)
+                content(state)
+            }
+            .navigationTitle(state.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { toolbar(state) }
+            .navigationDestination(for: Route.self) { route in
+                destination(route, householdID: state.activeHouseholdID)
+            }
+            .searchableWhen(
+                state.isSearchVisible,
+                text: Binding(
+                    get: { state.searchTerm },
+                    set: { presenter.searchChanged($0) }
+                ),
+                prompt: "Search boxes and items"
+            )
+            .refreshable { await presenter.refresh() }
         }
         .tint(.bfAccent)
         .task {
@@ -141,6 +149,52 @@ struct InventoryView: View {
                 householdID: householdID ?? "",
                 userID: userID
             )
+        }
+    }
+
+    /// Every tag in use, newest household first in the sense that there is
+    /// usually nothing here at all: most households tag nothing for a while,
+    /// and an empty bar should take up no room rather than a little.
+    @ViewBuilder
+    private func tagBar(_ state: InventoryViewState) -> some View {
+        if !state.tags.isEmpty {
+            ScrollView(.horizontal) {
+                HStack(spacing: 8) {
+                    ForEach(state.tags) { tag in
+                        Button {
+                            presenter.tagTapped(tag.label)
+                        } label: {
+                            HStack(spacing: 4) {
+                                if tag.isDerived {
+                                    Image(systemName: "hand.raised")
+                                        .font(.caption2)
+                                }
+                                Text(tag.label)
+                                    .font(.caption.weight(.medium))
+                                Text("\(tag.count)")
+                                    .font(.caption2)
+                                    .foregroundStyle(
+                                        tag.isActive ? Color.bfBg : Color.bfTextMuted
+                                    )
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(
+                                Capsule().fill(tag.isActive ? Color.bfAccent : Color.bfSurface)
+                            )
+                            .foregroundStyle(tag.isActive ? Color.bfBg : Color.bfText)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(
+                            tag.isActive ? "\(tag.label), filtering" : tag.label
+                        )
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+            }
+            .scrollIndicators(.hidden)
+            .background(Color.bfBg)
         }
     }
 

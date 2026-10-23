@@ -75,6 +75,25 @@ final class InventoryFlowUITests: UITestCase {
         XCTAssertFalse(app.staticTexts["Winter Clothes"].exists, "A non-match stayed on screen")
     }
 
+    /// The bar is a row of buttons over a list that has to react to them —
+    /// the kind of wiring a presenter test cannot check.
+    func testTappingATagNarrowsTheList() {
+        let app = launch()
+        assertVisible(app.staticTexts["Winter Clothes"], "The box list never appeared")
+        XCTAssertTrue(app.staticTexts["Tools"].exists)
+
+        app.buttons["winter"].tap()
+
+        // Polled rather than asserted outright: the list redraws a frame or
+        // two after the tap.
+        let deadline = Date().addingTimeInterval(timeout)
+        while app.staticTexts["Tools"].exists && Date() < deadline {
+            usleep(200_000)
+        }
+        XCTAssertFalse(app.staticTexts["Tools"].exists, "An untagged box survived the filter")
+        XCTAssertTrue(app.staticTexts["Winter Clothes"].exists, "The tagged box was filtered out")
+    }
+
     func testCreatingABoxAddsItToTheList() {
         let app = launch()
         assertVisible(app.staticTexts["Winter Clothes"], "The box list never appeared")

@@ -82,9 +82,16 @@ final class FixtureInventory:
             roomID: "room-attic",
             householdID: FixtureInventory.householdID,
             items: [
-                BoxItem(id: "item-scarf", name: "Scarf", quantity: 1, position: 0),
+                BoxItem(
+                    id: "item-scarf",
+                    name: "Scarf",
+                    quantity: 1,
+                    position: 0,
+                    tags: ["winter"]
+                ),
                 BoxItem(id: "item-gloves", name: "Gloves", quantity: 2, position: 1),
             ],
+            tags: ["winter"],
             // Inside the wardrobe below. The box list shows it under the Attic
             // either way: every place carries the room it ultimately sits in,
             // however deep that is.
@@ -97,7 +104,8 @@ final class FixtureInventory:
             icon: "box",
             roomID: "room-garage",
             householdID: FixtureInventory.householdID,
-            items: [BoxItem(id: "item-hammer", name: "Hammer", quantity: 1, position: 0)]
+            items: [BoxItem(id: "item-hammer", name: "Hammer", quantity: 1, position: 0)],
+            tags: ["heavy"]
         ),
         Box(
             id: "box-spare",

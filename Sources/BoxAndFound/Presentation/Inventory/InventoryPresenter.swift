@@ -19,7 +19,13 @@ final class InventoryPresenter: Presenter {
     private var active: Household?
     private var rooms: [Room] = []
     private var boxes: [Box] = []
+    /// Everything that holds something, containers included. Only the tag bar
+    /// reads it: an item loose in a wardrobe carries tags, and counting only
+    /// what is in boxes would leave it out of the bar it belongs in.
+    private var places: [Box] = []
     private var searchTerm = ""
+    /// The tag being filtered by, if any. Set by tapping it in the bar.
+    private var activeTag: String?
     private var isLoading = true
     private var failure: InventoryFailure?
 
@@ -49,8 +55,22 @@ final class InventoryPresenter: Presenter {
             // Nothing to search in an empty or broken household, and a search
             // field over an error message is just clutter.
             isSearchVisible: !boxes.isEmpty && failure == nil,
+            tags: tagChips,
             content: content
         )
+    }
+
+    private var tagChips: [InventoryViewState.TagChip] {
+        guard failure == nil else { return [] }
+        return Tags.usageCounts(places).map { tag in
+            InventoryViewState.TagChip(
+                id: tag.label.lowercased(),
+                label: tag.label,
+                count: tag.count,
+                isActive: activeTag?.caseInsensitiveCompare(tag.label) == .orderedSame,
+                isDerived: Tags.isDerived(tag.label)
+            )
+        }
     }
 
     private var content: InventoryViewState.Content {
@@ -59,9 +79,14 @@ final class InventoryPresenter: Presenter {
         if households.isEmpty { return .empty(message: InventoryCopy.noHouseholds) }
         if boxes.isEmpty { return .empty(message: InventoryCopy.noBoxes) }
 
+        // A tag narrows a search rather than replacing it: both are ways of
+        // saying "not all of them", and they compose.
         let matches = BoxSearch.filter(boxes, term: searchTerm)
+            .filter { Tags.boxHasTag($0.box, tag: activeTag) }
         guard !matches.isEmpty else {
-            return .empty(message: InventoryCopy.noResults(for: searchTerm.trimmed))
+            return .empty(
+                message: InventoryCopy.nothingMatches(term: searchTerm.trimmed, tag: activeTag)
+            )
         }
 
         let isSearching = !searchTerm.trimmed.isEmpty
@@ -122,11 +147,20 @@ final class InventoryPresenter: Presenter {
         searchTerm = term
     }
 
+    /// Tapping a tag narrows the list to it; tapping it again clears it. One
+    /// at a time: two at once asks whether it means both or either, and
+    /// neither answer is guessable from a row of chips.
+    func tagTapped(_ tag: String) {
+        activeTag = activeTag?.caseInsensitiveCompare(tag) == .orderedSame ? nil : tag
+    }
+
     func householdSelected(_ id: String) async {
         guard id != active?.id, let chosen = households.first(where: { $0.id == id }) else { return }
         active = chosen
         activeHousehold.set(chosen.id)
         searchTerm = ""
+        // Another household's tags are not this one's.
+        activeTag = nil
         await loadContents(of: chosen)
     }
 
@@ -154,6 +188,7 @@ final class InventoryPresenter: Presenter {
             failure = InventoryFailure.from(error)
             rooms = []
             boxes = []
+            places = []
         }
     }
 
@@ -166,14 +201,17 @@ final class InventoryPresenter: Presenter {
             async let rooms = repository.rooms(householdID: household.id)
             async let places = repository.places(householdID: household.id)
             self.rooms = try await rooms
-            // One read brings back everything that holds something. This
-            // screen lists boxes; containers, and the hidden holder for a
-            // room's own loose items, are the storage screen's business.
-            self.boxes = try await places.filter(Places.isBox)
+            // One read brings back everything that holds something. The list
+            // shows boxes; the tag bar counts the lot, because a tag on an
+            // item loose in a wardrobe is still a tag in this household.
+            let found = try await places
+            self.places = found
+            self.boxes = found.filter(Places.isBox)
         } catch {
             failure = InventoryFailure.from(error)
             rooms = []
             boxes = []
+            places = []
         }
     }
 }
