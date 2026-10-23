@@ -21,7 +21,11 @@ concurrency:
 jobs:
   build-and-test:
     runs-on: macos-26
-    timeout-minutes: 30
+    # Raised from 30, which the suite grew past: a UI test costs roughly a
+    # minute of simulator here, and the twenty-sixth one was killed mid-run.
+    # The timeout is a backstop against a hang, not a budget — if a green run
+    # ever approaches this, the suite needs splitting rather than more minutes.
+    timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v5
