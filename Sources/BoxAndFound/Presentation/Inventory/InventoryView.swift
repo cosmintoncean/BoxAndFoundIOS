@@ -48,13 +48,14 @@ struct InventoryView: View {
             // container, say — and a bar that vanished with the list would
             // leave no way to clear the filter that emptied it.
             //
-            // A safe-area inset rather than a VStack: in a VStack the bar laid
-            // out at its full height and drew nothing at all, which the first
-            // gallery caught as a band of empty space above the list. An inset
-            // is what a navigation stack expects a bar over a scrolling list
-            // to be, and it keeps the list's own insets honest underneath it.
+            // It lives inside the list rather than above it. Two attempts at
+            // a bar of its own -- a VStack, then a safe-area inset -- both
+            // laid the chips out and drew nothing; a list row is a thing this
+            // screen is known to draw. The empty state moves into the list for
+            // the same reason the bar had to sit outside it: a tag can filter
+            // every box out of view, and the bar has to outlive what it
+            // emptied or there is no way to clear it.
             content(state)
-                .safeAreaInset(edge: .top, spacing: 0) { tagBar(state) }
                 .navigationTitle(state.title)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { toolbar(state) }
@@ -156,14 +157,15 @@ struct InventoryView: View {
         }
     }
 
-    /// Every tag in use, newest household first in the sense that there is
-    /// usually nothing here at all: most households tag nothing for a while,
-    /// and an empty bar should take up no room rather than a little.
+    /// Every tag in use, as the first section of the list.
+    ///
+    /// Nothing at all when nothing is tagged, which is most households for a
+    /// while: an empty bar should take up no room rather than a little.
     @ViewBuilder
     private func tagBar(_ state: InventoryViewState) -> some View {
         if !state.tags.isEmpty {
-            ScrollView(.horizontal) {
-                HStack(spacing: 8) {
+            Section {
+                TagFlow {
                     ForEach(state.tags) { tag in
                         Button {
                             presenter.tagTapped(tag.label)
@@ -194,11 +196,10 @@ struct InventoryView: View {
                         )
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
+                .padding(.vertical, 2)
             }
-            .scrollIndicators(.hidden)
-            .background(Color.bfBg)
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
         }
     }
 
@@ -208,13 +209,20 @@ struct InventoryView: View {
         case .loading:
             centred { ProgressView() }
         case .empty(let message):
-            centred {
-                Text(message)
-                    .font(.subheadline)
-                    .foregroundStyle(Color.bfTextMuted)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
+            List {
+                tagBar(state)
+                Section {
+                    Text(message)
+                        .font(.subheadline)
+                        .foregroundStyle(Color.bfTextMuted)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.vertical, 24)
+                }
+                .listRowBackground(Color.bfSurface)
             }
+            .listStyle(.insetGrouped)
+            .scrollContentBackground(.hidden)
+            .background(Color.bfBg)
         case .failed(let message):
             centred {
                 VStack(spacing: 12) {
@@ -232,6 +240,7 @@ struct InventoryView: View {
             }
         case .sections(let sections):
             List {
+                tagBar(state)
                 ForEach(sections) { section in
                     Section {
                         ForEach(section.boxes) { box in
