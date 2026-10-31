@@ -80,4 +80,3 @@ Building it yourself needs a Mac with Xcode 26, `xcodegen`, and a
 ## Links
 
 - [Box & Found](https://boxandfound.net)
-- [Android application](https://github.com/cosmintoncean/BoxAndFoundAndroid)
